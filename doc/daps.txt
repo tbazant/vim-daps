@@ -1,0 +1,14 @@
+*daps.txt* Plugin for using daps (https://opensuse.github.io/daps) commands inside Vim.
+
+Commands:
+:DapsValidate {DC file}
+  Validate the DocBook XML document specified by the DC-* file
+
+:DapsHtml {DC file}
+  Build HTML from the DocBook XML document in the current buffer.
+
+:DapsPdf {DC file}
+  Build PDF from the DocBook XML document in the current buffer.
+
+                                                            *daps-settings*
+This plugin _will_ have settings in the future.
