@@ -1,14 +1,35 @@
 *daps.txt* Plugin for using daps (https://opensuse.github.io/daps) commands inside Vim.
 
+                                                           *daps-installation*
+I recommend using a plugin manager such as vim-plug (https://github.com/junegunn/vim-plug)
+to install and update vim-daps.
+If you do not want to use a plugin manager, download and uncompress the tarball into
+your ~/.vim/plugin directory.
+
+                                                           *daps-requirements*
+You need to have daps (https://opensuse.github.io/daps) installed to use vim-daps
+commands in your Vim editor.
+
+
+Note:
+Before using any of vim-daps commands, you first have to specify which DC file
+you are going to use in the current buffer with the :DapsSetDCfile <DC-file> command.
+
 Commands:
-:DapsValidate {DC file}
-  Validate the DocBook XML document specified by the DC-* file
+:DapsSetDCfile <dc-file>
+  Specifies the DC file to be used by the current Vim buffer.
 
-:DapsHtml {DC file}
-  Build HTML from the DocBook XML document in the current buffer.
+:DapsValidate
+  Validates the DocBook XML document specified by the give DC file.
 
-:DapsPdf {DC file}
-  Build PDF from the DocBook XML document in the current buffer.
+:DapsHtml
+  Builds HTML from the DocBook XML document in the current buffer.
 
-                                                            *daps-settings*
+:DapsPdf
+  Builds PDF from the DocBook XML document in the current buffer.
+
+:DapsXmlFormat
+  Beautifies the XML source code in the current buffer.
+
+                                                           *daps-settings*
 This plugin _will_ have settings in the future.
