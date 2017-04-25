@@ -86,5 +86,24 @@ function s:DapsBuild(target)
   endif
 endfunction
 
+" formats the XML source
+function s:DapsXmlFormat()
+  " check if xmlformat script is installed
+  if executable('xmlformat')
+    let l:xmlformat = 'xmlformat'
+  elseif executable('xmlformat.pl')
+    let l:xmlformat = 'xmlformat.pl'
+  else
+    echoerr("'xmlformat' not found in your path")
+    return
+  endif
+  " save the current cursor position
+  let l:clin = line(".")
+  let l:ccol = col(".")
+  execute('%!' . l:xmlformat . ' -f /etc/daps/docbook-xmlformat.conf')
+  " go back to the saved cursor position
+  call cursor(l:clin, l:ccol)
+endfunction
+
 " restore the value of cpoptions
 let &cpo = s:save_cpo
