@@ -19,6 +19,12 @@ Commands:
 :DapsSetDCfile <dc-file>
   Specifies the DC file to be used by the current Vim buffer.
 
+:DapsSetSpellLang <lang>
+  Spiecifies language for the aspell dictionary, 'en_US' by default.
+
+:DapsImportSpellDict
+  Imports daps aspell dictionary into Vim spellchecker.
+
 :DapsValidate
   Validates the DocBook XML document specified by the give DC file.
 

@@ -13,26 +13,37 @@ if exists("g:loaded_daps")
 endif
 let g:loaded_daps = 1
 
+" set the default language for the aspell dictionary
+let w:spell_dict_lang = "en_US"
+
 " ------------- command definitions ------------ "
 " set default DC-* file for current buffer
 if !exists(":DapsSetDCfile")
   command -complete=custom,s:ListDCfiles -nargs=1 DapsSetDCfile :call s:DapsSetDCfile(<f-args>)
 endif
+" set aspell language
+if !exists(":DapsSetSpellLang")
+  command -nargs=1 DapsSetSpellLang :call s:DapsSetSpellLang(<f-args>)
+endif
 " daps validate
 if !exists(":DapsValidate")
-  command -complete=custom,s:ListDCfiles -nargs=0 DapsValidate :call s:DapsValidate(<f-args>)
+  command -nargs=0 DapsValidate :call s:DapsValidate(<f-args>)
 endif
 " daps xmlformat
 if !exists(":DapsXmlFormat")
-  command -complete=custom,s:ListDCfiles -nargs=0 DapsXmlFormat :call s:DapsXmlFormat(<f-args>)
+  command -nargs=0 DapsXmlFormat :call s:DapsXmlFormat(<f-args>)
 endif
 " daps html
 if !exists(":DapsHtml")
-  command -complete=custom,s:ListDCfiles -nargs=0 DapsHtml :call s:DapsBuild('html')
+  command -nargs=0 DapsHtml :call s:DapsBuild('html')
 endif
 " daps pdf
 if !exists(":DapsPdf")
-  command -complete=custom,s:ListDCfiles -nargs=0 DapsPdf :call s:DapsBuild('pdf')
+  command -nargs=0 DapsPdf :call s:DapsBuild('pdf')
+endif
+" import daps-aspell into vim spell checker
+if !exists(":DapsImportSpellDict")
+  command -nargs=0 DapsImportSpellDict :call s:DapsImportSpellDict()
 endif
 
 " ------------- command definitions end ------------ "
@@ -46,6 +57,11 @@ endfunction
 function s:DapsSetDCfile(dc_file)
   let b:dc_file = a:dc_file
   echom 'DC file set to ' . b:dc_file
+endfunction
+
+" set aspell dict for import
+function s:DapsSetAspellLang(lang)
+  let b:aspell_dict = a:lang . "-suse-addendum.rws"
 endfunction
 
 " check if DC file was previously set via DapsSetDCfile()
@@ -103,6 +119,12 @@ function s:DapsXmlFormat()
   execute('%!' . l:xmlformat . ' -f /etc/daps/docbook-xmlformat.conf')
   " go back to the saved cursor position
   call cursor(l:clin, l:ccol)
+endfunction
+
+"imports daps aspell into vim's spellchecker
+function s:DapsImportSpellDict()
+  execute '!aspell dump master -l ' . w:spell_dict_lang . '-suse-addendum.rws --dict-dir=/usr/share/suse-xsl-stylesheets/aspell > ~/.vim/spell/suse.utf-8.add'
+  echomsg "daps spell dictionary imported"
 endfunction
 
 " restore the value of cpoptions
