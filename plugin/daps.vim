@@ -75,7 +75,7 @@ endfunction
 
 " validates the document based on the DC file with tab completion
 function s:DapsValidate()
-  if s:IsDCfileSet() != ''
+  if !empty(s:IsDCfileSet())
     let l:cmd = 'daps -d ' . b:dc_file . ' validate'
     execute '!' . l:cmd
   endif
@@ -83,12 +83,22 @@ endfunction
 
 " builds the current chapter or --rootid
 function s:DapsBuild(target)
-  if s:IsDCfileSet() != ''
-    "let l:rootidcmd = "xmlstarlet sel -T -N db='http://docbook.org/ns/docbook' -t -v '//db:chapter/@xml:id' " . expand('%')
-    "let l:rootid = system(l:rootidcmd)
-    let l:cbuffer = join(getline(1,'$'))
-    let l:rootid = matchstr(l:cbuffer, '\c xml:id=\([''"]\)\zs.\{-}\ze\1')
-    "echo l:rootid
+  if !empty(s:IsDCfileSet())
+    " check if cursor is on 'id=""' line and use a --rootid
+    let l:rootid = matchstr(getline("."), '\c xml:id=\([''"]\)\zs.\{-}\ze\1')
+    if !empty(l:rootid)
+      " --rootid is limited to the following elements
+      let l:rootids = ['appendix', 'article', 'bibliography', 'book', 'chapter', 'glossary',
+            \ 'index', 'part', 'preface', 'sect1', 'section']
+      let l:element = matchstr(getline("."), '<\w\+')
+      if match(l:rootids, l:element[1:]) == -1
+        let l:rootid = ''
+      endif
+    endif
+    if empty(l:rootid)
+      let l:rootid = matchstr(join(getline(1,'$')), '\c xml:id=\([''"]\)\zs.\{-}\ze\1')
+    endif
+    " assemble daps cmdline
     let l:dapscmd = 'daps -d ' . b:dc_file . ' ' . a:target . ' --rootid=' . l:rootid
     "echo l:dapscmd
     let l:target_dir = systemlist(l:dapscmd)[0]
@@ -129,3 +139,7 @@ endfunction
 
 " restore the value of cpoptions
 let &cpo = s:save_cpo
+
+" O L D   S T U F F
+" find toplevel chapter ID:
+"let l:rootidcmd = "xmlstarlet sel -T -N db='http://docbook.org/ns/docbook' -t -v '//db:chapter/@xml:id' " . expand('%')

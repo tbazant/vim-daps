@@ -30,9 +30,13 @@ Commands:
 
 :DapsHtml
   Builds HTML from the DocBook XML document in the current buffer.
+  If the cursor is on a suitable line with id="...', then this
+  ROOTID will be built.
 
 :DapsPdf
   Builds PDF from the DocBook XML document in the current buffer.
+  If the cursor is on a suitable line with id="...', then this
+  ROOTID will be built.
 
 :DapsXmlFormat
   Beautifies the XML source code in the current buffer.
