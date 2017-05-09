@@ -14,7 +14,11 @@ endif
 let g:loaded_daps = 1
 
 " set the default language for the aspell dictionary
-let w:spell_dict_lang = "en_US"
+if exists("g:daps_spell_dict_lang")
+  let b:spell_dict_lang = g:daps_spell_dict_lang
+else
+  let b:spell_dict_lang = "en_US"
+endif
 
 " ------------- command definitions ------------ "
 " set default DC-* file for current buffer
@@ -45,8 +49,9 @@ endif
 if !exists(":DapsImportSpellDict")
   command -nargs=0 DapsImportSpellDict :call s:DapsImportSpellDict()
 endif
-
 " ------------- command definitions end ------------ "
+
+" ------------- functions ------------ "
 
 " lists all DC files in the current directory
 function s:ListDCfiles(A,L,P)
@@ -60,8 +65,9 @@ function s:DapsSetDCfile(dc_file)
 endfunction
 
 " set aspell dict for import
-function s:DapsSetAspellLang(lang)
-  let b:aspell_dict = a:lang . "-suse-addendum.rws"
+function s:DapsSetSpellLang(lang)
+  let b:spell_dict_lang = a:lang
+  let b:spell_dict = b:spell_dict_lang . "-suse-addendum.rws"
 endfunction
 
 " check if DC file was previously set via DapsSetDCfile()
@@ -133,8 +139,7 @@ endfunction
 
 "imports daps aspell into vim's spellchecker
 function s:DapsImportSpellDict()
-  execute '!aspell dump master -l ' . w:spell_dict_lang . '-suse-addendum.rws --dict-dir=/usr/share/suse-xsl-stylesheets/aspell > ~/.vim/spell/suse.utf-8.add'
-  echomsg "daps spell dictionary imported"
+  execute '!aspell dump master -l ' . b:spell_dict . ' --dict-dir=/usr/share/suse-xsl-stylesheets/aspell > ~/.vim/spell/suse.utf-8.add'
 endfunction
 
 " restore the value of cpoptions

@@ -42,4 +42,6 @@ Commands:
   Beautifies the XML source code in the current buffer.
 
                                                            *daps-settings*
-This plugin _will_ have settings in the future.
+g:daps_spell_dict_lang = <lang>
+  Sets the default language for spell dictionary. Default is 'en_US'.
+  You can override it with :DapsSetSpellLang <lang>
