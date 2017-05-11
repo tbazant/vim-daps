@@ -13,12 +13,7 @@ if exists("g:loaded_daps")
 endif
 let g:loaded_daps = 1
 
-" set the default language for the aspell dictionary
-if exists("g:daps_spell_dict_lang")
-  let b:spell_dict_lang = g:daps_spell_dict_lang
-else
-  let b:spell_dict_lang = "en_US"
-endif
+
 
 " ------------- command definitions ------------ "
 " set default DC-* file for current buffer
@@ -50,9 +45,26 @@ if !exists(":DapsImportSpellDict")
   command -nargs=0 DapsImportSpellDict :call s:DapsImportSpellDict()
 endif
 " ------------- command definitions end ------------ "
+"
+" ------------- options for ~/.vimrc ------------ "
+" set the default language for the aspell dictionary
+if exists("g:daps_spell_dict_lang")
+  let b:spell_dict_lang = g:daps_spell_dict_lang
+else
+  let b:spell_dict_lang = "en_US"
+endif
+" decide whether ask for DC file on startup and do so if yes
+if exists("g:daps_dcfile_autostart")
+  let b:daps_dcfile_autostart = g:daps_dcfile_autostart
+else
+  let b:daps_dcfile_autostart = 0
+endif
+"vvvvv does not work vvvvv"
+if b:daps_dcfile_autostart == 1
+ autocmd BufNewFile *.xml :DapsSetDCfile<Tab>
+endif
 
 " ------------- functions ------------ "
-
 " lists all DC files in the current directory
 function s:ListDCfiles(A,L,P)
   return system("ls -1 DC-*")
