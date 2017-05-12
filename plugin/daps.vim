@@ -55,25 +55,37 @@ else
 endif
 " decide whether ask for DC file on startup and do so if yes
 if exists("g:daps_dcfile_autostart")
-  let b:daps_dcfile_autostart = g:daps_dcfile_autostart
+  let b:dcfile_autostart = g:daps_dcfile_autostart
 else
-  let b:daps_dcfile_autostart = 0
+  let b:dcfile_autostart = 0
 endif
-"vvvvv does not work vvvvv"
-if b:daps_dcfile_autostart == 1
- autocmd BufNewFile *.xml :DapsSetDCfile<Tab>
+if b:dcfile_autostart == 1
+  autocmd BufReadPost,FileType docbk call s:AskForDCFile()
 endif
-
+" set default patter for DC file completion
+if exists("g:daps_dcfile_glob_pattern")
+  let g:dcfile_glob_pattern = g:daps_dcfile_glob_pattern
+else
+  let g:dcfile_glob_pattern = ""
+endif
 " ------------- functions ------------ "
+
 " lists all DC files in the current directory
 function s:ListDCfiles(A,L,P)
-  return system("ls -1 DC-*")
+  return system("ls -1 " . g:dcfile_glob_pattern . "*")
+endfunction
+
+" autoask for DC file
+function s:AskForDCFile()
+  call inputsave()
+  let b:dc_file = input("Enter DC file: ", g:dcfile_glob_pattern, "file")
+  call s:DapsSetDCfile(b:dc_file)
+  call inputrestore()
 endfunction
 
 " set current buffer's DC-* file
 function s:DapsSetDCfile(dc_file)
   let b:dc_file = a:dc_file
-  echom 'DC file set to ' . b:dc_file
 endfunction
 
 " set aspell dict for import

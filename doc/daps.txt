@@ -45,3 +45,10 @@ Commands:
 g:daps_spell_dict_lang = <lang>
   Sets the default language for spell dictionary. Default is 'en_US'.
   You can override it with :DapsSetSpellLang <lang>
+
+g:let daps_dcfile_autostart = 1 or 0
+  Specifies if Vim shoul dask you for the DC file fo rthe current
+  buffer automaticall after new buffer is opened.
+
+g:let daps_dcfile_glob_pattern = <pattern>
+  Set the globbing pattern to be used for DC file completion.
