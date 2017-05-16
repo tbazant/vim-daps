@@ -47,8 +47,11 @@ g:daps_spell_dict_lang = <lang>
   You can override it with :DapsSetSpellLang <lang>
 
 g:let daps_dcfile_autostart = 1 or 0
-  Specifies if Vim shoul dask you for the DC file fo rthe current
-  buffer automaticall after new buffer is opened.
+  Specifies if Vim should ask you for the DC file for the current
+  buffer automatically after new buffer is opened. Note that if DC
+  is already provided and you open a new tab, the DC you already provided
+  will be used without asking for a new one. You can override the DC file name
+  with :DapsSetDCfile for the current buffer.
 
 g:let daps_dcfile_glob_pattern = <pattern>
   Set the globbing pattern to be used for DC file completion.

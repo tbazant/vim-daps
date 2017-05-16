@@ -78,9 +78,13 @@ endfunction
 " autoask for DC file
 function s:AskForDCFile()
   call inputsave()
-  let b:dc_file = input("Enter DC file: ", g:dcfile_glob_pattern, "file")
-  call s:DapsSetDCfile(b:dc_file)
-  call inputrestore()
+  if !exists("g:daps_dc_file")
+    let g:daps_dc_file = input("Enter DC file: ", g:dcfile_glob_pattern, "file")
+    call s:DapsSetDCfile(g:daps_dc_file)
+    call inputrestore()
+  else
+    call s:DapsSetDCfile(g:daps_dc_file)
+  endif
 endfunction
 
 " set current buffer's DC-* file
