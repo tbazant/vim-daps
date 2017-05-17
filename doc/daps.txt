@@ -14,6 +14,8 @@ commands in your Vim editor.
 Note:
 Before using any of vim-daps commands, you first have to specify which DC file
 you are going to use in the current buffer with the :DapsSetDCfile <DC-file> command.
+You can make vim-daps ask you for the DC file on a new buffer startup by setting
+g:let daps_dcfile_autostart = 1
 
 Commands:
 :DapsSetDCfile <dc-file>
@@ -41,6 +43,11 @@ Commands:
 :DapsXmlFormat
   Beautifies the XML source code in the current buffer.
 
+:DapsImportEntites <entity_file>
+  Imports XML entities found in the given file for auto-completion
+  purposes.
+
+
                                                            *daps-settings*
 g:daps_spell_dict_lang = <lang>
   Sets the default language for spell dictionary. Default is 'en_US'.
@@ -55,3 +62,4 @@ g:let daps_dcfile_autostart = 1 or 0
 
 g:let daps_dcfile_glob_pattern = <pattern>
   Set the globbing pattern to be used for DC file completion.
+

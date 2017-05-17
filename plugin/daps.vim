@@ -14,11 +14,14 @@ endif
 let g:loaded_daps = 1
 
 
-
 " ------------- command definitions ------------ "
 " set default DC-* file for current buffer
 if !exists(":DapsSetDCfile")
   command -complete=custom,s:ListDCfiles -nargs=1 DapsSetDCfile :call s:DapsSetDCfile(<f-args>)
+endif
+" import DB entities from external file
+if !exists(":DapsImportEntites")
+  command -complete=file -nargs=+ DapsImportEntites :call s:DapsImportEntites(<f-args>)
 endif
 " set aspell language
 if !exists(":DapsSetSpellLang")
@@ -43,31 +46,10 @@ endif
 " import daps-aspell into vim spell checker
 if !exists(":DapsImportSpellDict")
   command -nargs=0 DapsImportSpellDict :call s:DapsImportSpellDict()
+  source ~/.vimrc
 endif
 " ------------- command definitions end ------------ "
 "
-" ------------- options for ~/.vimrc ------------ "
-" set the default language for the aspell dictionary
-if exists("g:daps_spell_dict_lang")
-  let b:spell_dict_lang = g:daps_spell_dict_lang
-else
-  let b:spell_dict_lang = "en_US"
-endif
-" decide whether ask for DC file on startup and do so if yes
-if exists("g:daps_dcfile_autostart")
-  let b:dcfile_autostart = g:daps_dcfile_autostart
-else
-  let b:dcfile_autostart = 0
-endif
-if b:dcfile_autostart == 1
-  autocmd BufReadPost,FileType docbk call s:AskForDCFile()
-endif
-" set default patter for DC file completion
-if exists("g:daps_dcfile_glob_pattern")
-  let g:dcfile_glob_pattern = g:daps_dcfile_glob_pattern
-else
-  let g:dcfile_glob_pattern = ""
-endif
 " ------------- functions ------------ "
 
 " lists all DC files in the current directory
@@ -169,6 +151,56 @@ endfunction
 function s:DapsImportSpellDict()
   execute '!aspell dump master -l ' . b:spell_dict . ' --dict-dir=/usr/share/suse-xsl-stylesheets/aspell > ~/.vim/spell/suse.utf-8.add'
 endfunction
+
+" imports entites from a file to a DTD file
+function s:DapsImportEntites(ent_file)
+  " check if file exists
+  let s:ent_file = expand(a:ent_file)
+  if !filereadable(s:ent_file)
+    echoerr 'File ' . s:ent_file . ' is not readable'
+    return
+  endif
+  "extract entities into @list
+  let list = []
+  for line in readfile(a:ent_file)
+    let split = split(line, ' ')
+    if !empty(split) && split[0] == '<!ENTITY' && split[1] != '%'
+      call add(list, split[1])
+    endif
+  endfor
+  " assig docbk_entity vriable with new content
+  let g:xmldata_docbook5['vimxmlentities'] += list
+  unlet line
+endfunction
+" ------------- options for ~/.vimrc ------------ "
+" set the default language for the aspell dictionary
+if exists("g:daps_spell_dict_lang")
+  let b:spell_dict_lang = g:daps_spell_dict_lang
+else
+  let b:spell_dict_lang = "en_US"
+endif
+call s:DapsSetSpellLang(b:spell_dict_lang)
+" decide whether ask for DC file on startup and do so if yes
+if exists("g:daps_dcfile_autostart")
+  let b:dcfile_autostart = g:daps_dcfile_autostart
+else
+  let b:dcfile_autostart = 0
+endif
+if b:dcfile_autostart == 1
+  autocmd BufReadPost,FileType docbk call s:AskForDCFile()
+endif
+" set default pattern for DC file completion
+if exists("g:daps_dcfile_glob_pattern")
+  let g:dcfile_glob_pattern = g:daps_dcfile_glob_pattern
+else
+  let g:dcfile_glob_pattern = ""
+endif
+" set default pattern for entity file completion
+if exists("g:daps_entfile_glob_pattern")
+  let g:entfile_glob_pattern = g:daps_entfile_glob_pattern
+else
+  let g:entfile_glob_pattern = "*"
+endif
 
 " restore the value of cpoptions
 let &cpo = s:save_cpo
