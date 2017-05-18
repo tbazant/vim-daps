@@ -21,7 +21,7 @@ if !exists(":DapsSetDCfile")
 endif
 " import DB entities from external file
 if !exists(":DapsImportEntites")
-  command -complete=file -nargs=+ DapsImportEntites :call s:DapsImportEntites(<f-args>)
+  command -complete=file -nargs=* DapsImportEntites :call s:DapsImportEntites(<f-args>)
 endif
 " set aspell language
 if !exists(":DapsSetSpellLang")
@@ -153,25 +153,50 @@ function s:DapsImportSpellDict()
 endfunction
 
 " imports entites from a file to a DTD file
-function s:DapsImportEntites(ent_file)
-  " check if file exists
-  let s:ent_file = expand(a:ent_file)
-  if !filereadable(s:ent_file)
-    echoerr 'File ' . s:ent_file . ' is not readable'
-    return
-  endif
-  "extract entities into @list
-  let list = []
-  for line in readfile(a:ent_file)
-    let split = split(line, ' ')
-    if !empty(split) && split[0] == '<!ENTITY' && split[1] != '%'
-      call add(list, split[1])
+" 1) look if arguments are a list of entity files and try to extract entites;
+" 2) if no argument is given, run getentityname.py to get the list of files
+function s:DapsImportEntites(...)
+  if a:0 == 0
+    " no arg given, try getentityname.py
+    let ent_files = split(system('/usr/share/daps/libexec/getentityname.py ' . expand('%:p'), ' '))
+    if len(ent_files) == 0
+      " no ent files provided or found
+      echoerr "No entity file(s) could be extracte, specify them on the command line"
+      return
+    else
+      " add 'xml/' before each ent filename
+      call map(ent_files, '"xml/" . v:val')
     endif
+  else
+    let ent_files = a:000
+  endif
+
+  let g:xmldata_docbook5['vimxmlentities'] = []
+
+  for ent_file in ent_files
+    " check if file exists
+    let ent_file = expand(ent_file)
+    if !filereadable(ent_file)
+      echoerr 'File ' . ent_file . ' is not readable'
+      continue
+    endif
+    "extract entities into @list
+    let list = []
+    for line in readfile(ent_file)
+      let split = split(line, ' ')
+      if !empty(split) && split[0] == '<!ENTITY' && split[1] != '%'
+        call add(list, split[1])
+      endif
+    endfor
+    " assig docbk_entity vriable with new content
+    let g:xmldata_docbook5['vimxmlentities'] += list
   endfor
-  " assig docbk_entity vriable with new content
-  let g:xmldata_docbook5['vimxmlentities'] += list
+  let sorted = sort(copy(g:xmldata_docbook5['vimxmlentities']))
+  let g:xmldata_docbook5['vimxmlentities'] = copy(sorted)
+  unlet sorted
   unlet line
 endfunction
+
 " ------------- options for ~/.vimrc ------------ "
 " set the default language for the aspell dictionary
 if exists("g:daps_spell_dict_lang")
@@ -200,6 +225,15 @@ if exists("g:daps_entfile_glob_pattern")
   let g:entfile_glob_pattern = g:daps_entfile_glob_pattern
 else
   let g:entfile_glob_pattern = "*"
+endif
+" decide whether run entity import on new file open
+if exists("g:daps_entity_import_autostart")
+  let b:entity_import_autostart = g:daps_entity_import_autostart
+else
+  let b:entity_import_autostart = 0
+endif
+if b:entity_import_autostart == 1
+  autocmd BufReadPost,FileType docbk call s:DapsImportEntites()
 endif
 
 " restore the value of cpoptions

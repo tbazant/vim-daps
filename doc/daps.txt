@@ -45,7 +45,8 @@ Commands:
 
 :DapsImportEntites <entity_file>
   Imports XML entities found in the given file for auto-completion
-  purposes.
+  purposes. If no file is specified, entities are imported from
+  the current file's <!ENTITY tag.
 
 
                                                            *daps-settings*
@@ -63,3 +64,5 @@ g:let daps_dcfile_autostart = 1 or 0
 g:let daps_dcfile_glob_pattern = <pattern>
   Set the globbing pattern to be used for DC file completion.
 
+g:daps_entity_import_autostart
+   If set to 1, runs XML entity import on DocBook files automatically.
