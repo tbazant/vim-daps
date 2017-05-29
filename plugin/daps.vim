@@ -157,6 +157,10 @@ endfunction
 " 2) if no argument is given, run getentityname.py to get the list of files
 function s:DapsImportEntites(...)
   if a:0 == 0
+    " return for fugitive:// paths
+    if expand('%:p') =~ '^fugitive'
+      return
+    endif
     " no arg given, try getentityname.py
     let ent_files = split(system('/usr/share/daps/libexec/getentityname.py ' . expand('%:p'), ' '))
     if len(ent_files) == 0
