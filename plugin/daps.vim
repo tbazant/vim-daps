@@ -31,6 +31,10 @@ endif
 if !exists(":DapsValidate")
   command -nargs=0 DapsValidate :call s:DapsValidate(<f-args>)
 endif
+" daps validate file
+if !exists(":DapsValidateFile")
+  command -nargs=0 DapsValidateFile :call s:DapsValidateFile(<f-args>)
+endif
 " daps xmlformat
 if !exists(":DapsXmlFormat")
   command -nargs=0 DapsXmlFormat :call s:DapsXmlFormat(<f-args>)
@@ -93,7 +97,39 @@ endfunction
 function s:DapsValidate()
   if !empty(s:IsDCfileSet())
     let l:cmd = 'daps -d ' . b:dc_file . ' validate'
-    execute '!' . l:cmd
+    let l:result = system(l:cmd)
+    echo l:result
+  endif
+endfunction
+
+" validates the current file only
+function s:DapsValidateFile()
+  let l:jing_cmd = 'jing -i /usr/share/xml/docbook/schema/rng/5.1/docbookxi.rng ' . expand("%")
+  let l:jing_result = systemlist(l:jing_cmd)
+  if !empty(l:jing_result)
+    " define signs
+    sign define error text=E
+    sign define warning text=W
+    sign define fatal text=F
+    let l:qflist = []
+    let id = 1
+    for line in l:jing_result
+      let sl = split(line, ':')
+      call add(l:qflist, {
+        \ 'filename': sl[0],
+        \ 'lnum': sl[1],
+        \ 'col': sl[2],
+        \ 'type': substitute(sl[3], ' ', '', ''),
+        \ 'text': strpart(sl[4], 0, 70) . '...',
+      \})
+      execute "sign place " . id . " line=" . sl[1] . " name=" . substitute(sl[3], ' ', '', '') . " file=" . sl[0]
+      let id = id + 1
+    endfor
+    call setqflist(l:qflist)
+    execute 'copen' len(l:qflist) + 4
+  else
+    execute 'cclose'
+    call s:DapsValidate()
   endif
 endfunction
 
@@ -165,7 +201,7 @@ function s:DapsImportEntites(...)
     let ent_files = split(system('/usr/share/daps/libexec/getentityname.py ' . expand('%:p'), ' '))
     if len(ent_files) == 0
       " no ent files provided or found
-      echoerr "No entity file(s) could be extracte, specify them on the command line"
+      echoerr "No entity file(s) could be extracted, specify them on the command line"
       return
     else
       " add 'xml/' before each ent filename
