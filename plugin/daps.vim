@@ -98,7 +98,7 @@ function s:DapsValidate()
   if !empty(s:IsDCfileSet())
     let l:cmd = 'daps -d ' . b:dc_file . ' validate'
     let l:result = system(l:cmd)
-    echo l:result
+    echom l:result
   endif
 endfunction
 
@@ -122,13 +122,14 @@ function s:DapsValidateFile()
         \ 'type': substitute(sl[3], ' ', '', ''),
         \ 'text': strpart(sl[4], 0, 70) . '...',
       \})
-      execute "sign place " . id . " line=" . sl[1] . " name=" . substitute(sl[3], ' ', '', '') . " file=" . sl[0]
-      let id = id + 1
+      execute 'sign place ' . id . ' line=' . sl[1] . ' name=' . substitute(sl[3], ' ', '', '') . ' file=' . sl[0]
+      let id += 1
     endfor
     call setqflist(l:qflist)
     execute 'copen' len(l:qflist) + 4
   else
     execute 'cclose'
+    execute 'sign unplace *'
     call s:DapsValidate()
   endif
 endfunction
@@ -152,9 +153,7 @@ function s:DapsBuild(target)
     endif
     " assemble daps cmdline
     let l:dapscmd = 'daps -d ' . b:dc_file . ' ' . a:target . ' --rootid=' . l:rootid
-    "echo l:dapscmd
     let l:target_dir = systemlist(l:dapscmd)[0]
-    "echo l:target_dir
     if a:target == 'html'
       let l:target_file = join([l:target_dir, 'index.html'], '')
     else
