@@ -1,5 +1,5 @@
 " Vim filetype plugin that implements some features of daps (https://opensuse.github.io/daps)
-" Last Change:  2017 Apr 21
+" Last Change:  2017 Nov 29
 " Maintainer:   Tomáš Bažant <tomas.bazant@yahoo.com>
 " License:      This file is placed in the public domain.
 
@@ -15,9 +15,22 @@ let g:loaded_daps = 1
 
 
 " ------------- command definitions ------------ "
+" dummy command and function for testing purposes
+"if !exists(":DapsDummy")
+"  command -nargs=* DapsDummy :call s:DapsDummy(<f-args>)
+"endif
+"function s:DapsDummy()
+"  let dict_list = systemlist("ls -1 " . s:plugindir . "/autoload/xml/*.vim")
+"  let result = map(copy(dict_list), 'fnamemodify(v:val, ":t:r")')
+"  echo join(result, "\n")
+"endfunction
 " set default DC-* file for current buffer
 if !exists(":DapsSetDCfile")
   command -complete=custom,s:ListDCfiles -nargs=1 DapsSetDCfile :call s:DapsSetDCfile(<f-args>)
+endif
+" set DocType (version) for DocBook (and derived) documents
+if !exists(":DapsSetDoctype")
+  command -complete=custom,s:ListXMLdictionaries -nargs=1 DapsSetDoctype :call s:DapsSetDoctype(<f-args>)
 endif
 " import DB entities from external file
 if !exists(":DapsImportEntites")
@@ -34,6 +47,10 @@ endif
 " daps validate file
 if !exists(":DapsValidateFile")
   command -nargs=0 DapsValidateFile :call s:DapsValidateFile(<f-args>)
+endif
+" daps style check
+if !exists(":DapsStylecheck")
+  command -nargs=0 DapsStylecheck :call s:DapsStylecheck(<f-args>)
 endif
 " daps xmlformat
 if !exists(":DapsXmlFormat")
@@ -61,6 +78,13 @@ function s:ListDCfiles(A,L,P)
   return system("ls -1 " . g:dcfile_glob_pattern . "*")
 endfunction
 
+" lists XML dictionaries from vim-daps plugin
+function s:ListXMLdictionaries(A,L,P)
+  let dict_list = systemlist("ls -1 " . s:plugindir . "/autoload/xml/*.vim")
+  let result = map(copy(dict_list), 'fnamemodify(v:val, ":t:r")')
+  return join(result, "\n")
+endfunction
+
 " autoask for DC file
 function s:AskForDCFile()
   call inputsave()
@@ -76,6 +100,14 @@ endfunction
 " set current buffer's DC-* file
 function s:DapsSetDCfile(dc_file)
   let b:dc_file = a:dc_file
+endfunction
+
+" set aspell dict for import
+function s:DapsSetDoctype(doctype)
+  execute 'XMLns ' . a:doctype
+  call s:DapsImportEntites()
+  echom 'Changed DocType from ' . b:doctype . ' to ' . a:doctype
+  let b:doctype = a:doctype
 endfunction
 
 " set aspell dict for import
@@ -96,15 +128,59 @@ endfunction
 " validates the document based on the DC file with tab completion
 function s:DapsValidate()
   if !empty(s:IsDCfileSet())
-    let l:cmd = 'daps -d ' . b:dc_file . ' validate'
-    let l:result = system(l:cmd)
-    echom l:result
+    let result = system('daps -d ' . b:dc_file . ' validate')
+    echom result
+  endif
+endfunction
+
+" daps style check
+function s:DapsStylecheck()
+  if !empty(s:IsDCfileSet())
+    " find out the location of the style result XML file
+    let style_xml = system('daps -d ' . b:dc_file . ' stylecheck --file ' . expand('%'))
+    let style_result = systemlist('xsltproc ~/.vim/plugged/vim-daps/tools/vim_stylecheck.xsl ' . style_xml)
+    if !empty(style_result)
+      " define signs
+      sign define error text=E
+      sign define warning text=W
+      sign define fatal text=F
+      let l:qflist = []
+      let id = 1
+      for line in style_result
+        let sl = split(line, '::')
+        " remove this after Stefan removes the first useless line of output
+        if len(sl) > 3
+          " filter out unwanted message types
+          if !empty(g:daps_stylecheck_show)
+            if g:daps_stylecheck_show != sl[2]
+              continue
+            endif
+          endif
+          let filename = expand('xml/' . sl[0])
+          " remove this once Stefan fixes the line numbering
+          let lnum = sl[1] + 5
+          call add(l:qflist, {
+                \ 'filename': filename,
+                \ 'lnum': lnum,
+                \ 'type': sl[2],
+                \ 'text': sl[4],
+                \})
+          execute 'sign place ' . id . ' line=' . lnum . ' name=' . sl[2] . ' file=' . filename
+          let id += 1
+        endif
+      endfor
+      call setqflist(l:qflist)
+      execute 'copen'
+    else
+      execute 'cclose'
+      execute 'sign unplace *'
+    endif
   endif
 endfunction
 
 " validates the current file only
 function s:DapsValidateFile()
-  let l:jing_cmd = 'jing -i /usr/share/xml/docbook/schema/rng/5.1/docbookxi.rng ' . expand("%")
+  let l:jing_cmd = 'jing -i /usr/share/xml/docbook/schema/rng/5.1/docbookxi.rng ' . expand('%')
   let l:jing_result = systemlist(l:jing_cmd)
   if !empty(l:jing_result)
     " define signs
@@ -116,12 +192,12 @@ function s:DapsValidateFile()
     for line in l:jing_result
       let sl = split(line, ':')
       call add(l:qflist, {
-        \ 'filename': sl[0],
-        \ 'lnum': sl[1],
-        \ 'col': sl[2],
-        \ 'type': substitute(sl[3], ' ', '', ''),
-        \ 'text': strpart(sl[4], 0, 70) . '...',
-      \})
+            \ 'filename': sl[0],
+            \ 'lnum': sl[1],
+            \ 'col': sl[2],
+            \ 'type': substitute(sl[3], ' ', '', ''),
+            \ 'text': strpart(sl[4], 0, 70) . '...',
+            \})
       execute 'sign place ' . id . ' line=' . sl[1] . ' name=' . substitute(sl[3], ' ', '', '') . ' file=' . sl[0]
       let id += 1
     endfor
@@ -159,7 +235,8 @@ function s:DapsBuild(target)
     else
       let l:target_file = l:target_dir
     endif
-    execute '!xdg-open ' . l:target_file
+    silent execute '!xdg-open ' . l:target_file
+    execute 'redraw!'
   endif
 endfunction
 
@@ -210,7 +287,7 @@ function s:DapsImportEntites(...)
     let ent_files = a:000
   endif
 
-  let g:xmldata_docbook5['vimxmlentities'] = []
+  "let g:xmldata_{b:doctype}['vimxmlentities'] = []
 
   for ent_file in ent_files
     " check if file exists
@@ -228,13 +305,16 @@ function s:DapsImportEntites(...)
       endif
     endfor
     " assig docbk_entity vriable with new content
-    let g:xmldata_docbook5['vimxmlentities'] += list
+    let g:xmldata_{b:doctype}['vimxmlentities'] += list
   endfor
-  let sorted = sort(copy(g:xmldata_docbook5['vimxmlentities']))
-  let g:xmldata_docbook5['vimxmlentities'] = copy(sorted)
+  let sorted = sort(copy(g:xmldata_{b:doctype}['vimxmlentities']))
+  let g:xmldata_{b:doctype}['vimxmlentities'] = copy(sorted)
   unlet sorted
   unlet line
 endfunction
+
+"remember the script's directory
+let s:plugindir = expand('<sfile>:p:h:h')
 
 " ------------- options for ~/.vimrc ------------ "
 " set the default language for the aspell dictionary
@@ -273,6 +353,12 @@ else
 endif
 if b:entity_import_autostart == 1
   autocmd BufReadPost,FileType docbk call s:DapsImportEntites()
+endif
+" set the DocBook doctype
+if exists("g:daps_doctype")
+  let b:doctype = g:daps_doctype
+else
+  let b:doctype = "docbook50"
 endif
 
 " restore the value of cpoptions
