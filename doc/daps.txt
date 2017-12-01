@@ -48,21 +48,31 @@ Commands:
   purposes. If no file is specified, entities are imported from
   the current file's <!ENTITY tag.
 
+:DapsSetDoctype <doctype>
+  Set DocType for DocBook documents and import available entities. vim-daps
+   ships with 'docbook45', 'docbook50' (default), and 'geekodoc5'.
+
 
                                                            *daps-settings*
 g:daps_spell_dict_lang = <lang>
   Sets the default language for spell dictionary. Default is 'en_US'.
   You can override it with :DapsSetSpellLang <lang>
 
-g:let daps_dcfile_autostart = 1 or 0
+g:daps_dcfile_autostart = 1 or 0
   Specifies if Vim should ask you for the DC file for the current
   buffer automatically after new buffer is opened. Note that if DC
   is already provided and you open a new tab, the DC you already provided
   will be used without asking for a new one. You can override the DC file name
   with :DapsSetDCfile for the current buffer.
 
-g:let daps_dcfile_glob_pattern = <pattern>
-  Set the globbing pattern to be used for DC file completion.
+g:daps_dcfile_glob_pattern = <pattern>
+  Set the globbing pattern to be used for DC file autocompletion.
 
 g:daps_entity_import_autostart
-   If set to 1, runs XML entity import on DocBook files automatically.
+  If set to 1, runs XML entity import on DocBook files automatically.
+
+g:daps_entfile_glob_pattern = <pattern>
+  Globbing patter for entity file autocompletion. Default is '*'.
+
+g:daps_doctype = <doctype>
+  Set the default doctype for DocBook documents. Default is 'docbook50'.
