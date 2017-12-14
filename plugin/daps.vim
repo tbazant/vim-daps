@@ -104,10 +104,10 @@ endfunction
 
 " set aspell dict for import
 function s:DapsSetDoctype(doctype)
-  execute 'XMLns ' . a:doctype
-  call s:DapsImportEntites()
-  echom 'Changed DocType from ' . b:doctype . ' to ' . a:doctype
   let b:doctype = a:doctype
+  execute 'XMLns ' . b:doctype
+  echom 'Changed DocType from ' . b:doctype . ' to ' . a:doctype
+  call s:DapsImportEntites()
 endfunction
 
 " set aspell dict for import
@@ -345,20 +345,19 @@ if exists("g:daps_entfile_glob_pattern")
 else
   let g:entfile_glob_pattern = "*"
 endif
-" decide whether run entity import on new file open
+" decide whether run entity, set doctype, and import on new file open
 if exists("g:daps_entity_import_autostart")
   let b:entity_import_autostart = g:daps_entity_import_autostart
 else
   let b:entity_import_autostart = 0
 endif
-if b:entity_import_autostart == 1
-  autocmd BufReadPost,FileType docbk call s:DapsImportEntites()
-endif
-" set the DocBook doctype
 if exists("g:daps_doctype")
   let b:doctype = g:daps_doctype
 else
   let b:doctype = "docbook50"
+endif
+if b:entity_import_autostart == 1
+  autocmd BufReadPost,FileType docbk call s:DapsSetDoctype(b:doctype)
 endif
 
 " restore the value of cpoptions
