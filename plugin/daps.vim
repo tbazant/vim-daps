@@ -30,7 +30,7 @@ if !exists(":DapsSetDCfile")
 endif
 " set DocType (version) for DocBook (and derived) documents
 if !exists(":DapsSetDoctype")
-  command -complete=custom,s:ListXMLdictionaries -nargs=1 DapsSetDoctype :call s:DapsSetDoctype(<f-args>)
+  command -complete=custom,s:ListXMLdictionaries -nargs=* DapsSetDoctype :call s:DapsSetDoctype(<f-args>)
 endif
 " import DB entities from external file
 if !exists(":DapsImportEntites")
@@ -102,11 +102,18 @@ function s:DapsSetDCfile(dc_file)
   let b:dc_file = a:dc_file
 endfunction
 
-" set aspell dict for import
-function s:DapsSetDoctype(doctype)
-  let b:doctype = a:doctype
+" set doctype for DB documents
+function s:DapsSetDoctype(...)
+  if a:0 == 0
+    if exists("g:daps_doctype")
+      let b:doctype = g:daps_doctype
+    else
+      let b:doctype = "docbook50"
+    endif
+  else
+    let b:doctype = a:1
+  endif
   execute 'XMLns ' . b:doctype
-  echom 'Changed DocType from ' . b:doctype . ' to ' . a:doctype
   call s:DapsImportEntites()
 endfunction
 
@@ -351,13 +358,8 @@ if exists("g:daps_entity_import_autostart")
 else
   let b:entity_import_autostart = 0
 endif
-if exists("g:daps_doctype")
-  let b:doctype = g:daps_doctype
-else
-  let b:doctype = "docbook50"
-endif
 if b:entity_import_autostart == 1
-  autocmd BufReadPost,FileType docbk call s:DapsSetDoctype(b:doctype)
+  autocmd BufReadPost,FileType docbk call s:DapsSetDoctype()
 endif
 
 " restore the value of cpoptions
