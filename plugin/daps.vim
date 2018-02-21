@@ -113,8 +113,8 @@ function s:DapsSetDoctype(...)
   else
     let b:doctype = a:1
   endif
-    execute 'XMLns ' . b:doctype
-    call s:DapsImportEntites()
+  execute 'XMLns ' . b:doctype
+  call s:DapsImportEntites()
 endfunction
 
 " set aspell dict for import
