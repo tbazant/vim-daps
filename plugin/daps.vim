@@ -64,11 +64,6 @@ endif
 if !exists(":DapsPdf")
   command -nargs=0 DapsPdf :call s:DapsBuild('pdf')
 endif
-" import daps-aspell into vim spell checker
-if !exists(":DapsImportSpellDict")
-  command -nargs=0 DapsImportSpellDict :call s:DapsImportSpellDict()
-  source ~/.vimrc
-endif
 " ------------- command definitions end ------------ "
 "
 " ------------- functions ------------ "
@@ -264,11 +259,6 @@ function s:DapsXmlFormat()
   execute('%!' . l:xmlformat . ' -f /etc/daps/docbook-xmlformat.conf')
   " go back to the saved cursor position
   call cursor(l:clin, l:ccol)
-endfunction
-
-"imports daps aspell into vim's spellchecker
-function s:DapsImportSpellDict()
-  execute '!aspell dump master -l ' . b:spell_dict . ' --dict-dir=/usr/share/suse-xsl-stylesheets/aspell > ~/.vim/spell/suse.utf-8.add'
 endfunction
 
 " imports entites from a file to a DTD file
