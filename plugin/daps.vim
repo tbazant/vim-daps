@@ -36,10 +36,6 @@ endif
 if !exists(":DapsImportEntites")
   command -complete=file -nargs=* DapsImportEntites :call s:DapsImportEntites(<f-args>)
 endif
-" set aspell language
-if !exists(":DapsSetSpellLang")
-  command -nargs=1 DapsSetSpellLang :call s:DapsSetSpellLang(<f-args>)
-endif
 " daps validate
 if !exists(":DapsValidate")
   command -nargs=0 DapsValidate :call s:DapsValidate(<f-args>)
@@ -110,12 +106,6 @@ function s:DapsSetDoctype(...)
   endif
   execute 'XMLns ' . b:doctype
   call s:DapsImportEntites()
-endfunction
-
-" set aspell dict for import
-function s:DapsSetSpellLang(lang)
-  let b:spell_dict_lang = a:lang
-  let b:spell_dict = b:spell_dict_lang . "-suse-addendum.rws"
 endfunction
 
 " check if DC file was previously set via DapsSetDCfile()
@@ -314,13 +304,6 @@ endfunction
 let s:plugindir = expand('<sfile>:p:h:h')
 
 " ------------- options for ~/.vimrc ------------ "
-" set the default language for the aspell dictionary
-if exists("g:daps_spell_dict_lang")
-  let b:spell_dict_lang = g:daps_spell_dict_lang
-else
-  let b:spell_dict_lang = "en_US"
-endif
-call s:DapsSetSpellLang(b:spell_dict_lang)
 " decide whether ask for DC file on startup and do so if yes
 if exists("g:daps_dcfile_autostart")
   let b:dcfile_autostart = g:daps_dcfile_autostart

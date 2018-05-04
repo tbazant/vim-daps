@@ -21,9 +21,6 @@ Commands:
 :DapsSetDCfile <dc-file>
   Specifies the DC file to be used by the current Vim buffer.
 
-:DapsSetSpellLang <lang>
-  Spiecifies language for the aspell dictionary, 'en_US' by default.
-
 :DapsValidate
   Validates the DocBook XML document specified by the give DC file.
 
@@ -51,10 +48,6 @@ Commands:
 
 
                                                            *daps-settings*
-g:daps_spell_dict_lang = <lang>
-  Sets the default language for spell dictionary. Default is 'en_US'.
-  You can override it with :DapsSetSpellLang <lang>
-
 g:daps_dcfile_autostart = 1 or 0
   Specifies if Vim should ask you for the DC file for the current
   buffer automatically after new buffer is opened. Note that if DC
