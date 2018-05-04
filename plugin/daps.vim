@@ -24,6 +24,7 @@ let g:loaded_daps = 1
 "  let result = map(copy(dict_list), 'fnamemodify(v:val, ":t:r")')
 "  echo join(result, "\n")
 "endfunction
+
 " set default DC-* file for current buffer
 if !exists(":DapsSetDCfile")
   command -complete=custom,s:ListDCfiles -nargs=1 DapsSetDCfile :call s:DapsSetDCfile(<f-args>)
@@ -227,8 +228,13 @@ function s:DapsBuild(target)
     else
       let l:target_file = l:target_dir
     endif
-    silent execute '!xdg-open ' . l:target_file
-    execute 'redraw!'
+    if exists("g:daps_" . a:target . "_viewer")
+      let l:doc_viewer = g:daps_{a:target}_viewer
+      silent execute '!' . l:doc_viewer . ' ' . l:target_file
+    else
+      silent execute '!xdg-open ' . l:target_file
+    endif
+    "execute 'redraw!'
   endif
 endfunction
 

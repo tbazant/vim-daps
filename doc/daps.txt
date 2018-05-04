@@ -66,3 +66,11 @@ g:daps_entfile_glob_pattern = <pattern>
 
 g:daps_doctype = <doctype>
   Set the default doctype for DocBook documents. Default is 'docbook50'.
+
+g:daps_html_viewer = <command>
+  Set the default application for viewing HTML output. Default is the desktop
+  environment's MIME handler.
+
+g:daps_pdf_viewer = <command>
+  Set the default application for viewing PDF output. Default is the desktop
+  environment's MIME handler.
