@@ -234,7 +234,7 @@ function s:DapsBuild(target)
     else
       silent execute '!xdg-open ' . l:target_file
     endif
-    "execute 'redraw!'
+    execute 'redraw!'
   endif
 endfunction
 
