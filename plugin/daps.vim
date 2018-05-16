@@ -16,14 +16,10 @@ let g:loaded_daps = 1
 
 " ------------- command definitions ------------ "
 " dummy command and function for testing purposes
-"if !exists(":DapsDummy")
-"  command -nargs=* DapsDummy :call s:DapsDummy(<f-args>)
-"endif
-"function s:DapsDummy()
-"  let dict_list = systemlist("ls -1 " . s:plugindir . "/autoload/xml/*.vim")
-"  let result = map(copy(dict_list), 'fnamemodify(v:val, ":t:r")')
-"  echo join(result, "\n")
-"endfunction
+if !exists(":DapsDummy")
+  command -nargs=* DapsDummy :call s:DapsDummy(<f-args>)
+endif
+
 
 " set default DC-* file for current buffer
 if !exists(":DapsSetDCfile")
@@ -72,7 +68,8 @@ endfunction
 
 " lists XML dictionaries from vim-daps plugin
 function s:ListXMLdictionaries(A,L,P)
-  let dict_list = systemlist("ls -1 " . s:plugindir . "/autoload/xml/*.vim")
+  " make sure the dict list is unique
+  let dict_list = filter(values(g:daps_db_schema),'index(values(g:daps_db_schema), v:val, v:key+1)==-1')
   let result = map(copy(dict_list), 'fnamemodify(v:val, ":t:r")')
   return join(result, "\n")
 endfunction
@@ -122,7 +119,12 @@ endfunction
 function s:DapsValidate()
   if !empty(s:IsDCfileSet())
     let result = system('daps -d ' . b:dc_file . ' validate')
-    echom result
+    if v:shell_error == 0
+      echom 'All files are valid.'
+      return 0
+    else
+      echoe "Validation failed.\n" . result
+    endif
   endif
 endfunction
 
@@ -173,33 +175,47 @@ endfunction
 
 " validates the current file only
 function s:DapsValidateFile()
-  let l:jing_cmd = 'jing -i /usr/share/xml/docbook/schema/rng/5.1/docbookxi.rng ' . expand('%')
-  let l:jing_result = systemlist(l:jing_cmd)
-  if !empty(l:jing_result)
-    " define signs
-    sign define error text=E
-    sign define warning text=W
-    sign define fatal text=F
-    let l:qflist = []
-    let id = 1
-    for line in l:jing_result
-      let sl = split(line, ':')
-      call add(l:qflist, {
-            \ 'filename': sl[0],
-            \ 'lnum': sl[1],
-            \ 'col': sl[2],
-            \ 'type': substitute(sl[3], ' ', '', ''),
-            \ 'text': strpart(sl[4], 0, 70) . '...',
-            \})
-      execute 'sign place ' . id . ' line=' . sl[1] . ' name=' . substitute(sl[3], ' ', '', '') . ' file=' . sl[0]
-      let id += 1
-    endfor
-    call setqflist(l:qflist)
-    execute 'copen' len(l:qflist) + 4
+  " get the schema URI
+  for [key, value] in items(g:daps_db_schema)
+    if value == b:doctype
+      let l:schema_uri = key
+      break
+    endif
+  endfor
+  if exists('l:schema_uri')
+    " get the schema file
+    let l:schema_file = systemlist('xmlcatalog /etc/xml/catalog ' . l:schema_uri)[0]
+    " run jing to check the current file's structure
+    let l:jing_cmd = 'jing -i ' . l:schema_file . ' ' . expand('%')
+    let l:jing_result = systemlist(l:jing_cmd)
+    if !empty(l:jing_result)
+      " define signs
+      sign define error text=E
+      sign define warning text=W
+      sign define fatal text=F
+      let l:qflist = []
+      let id = 1
+      for line in l:jing_result
+        let sl = split(line, ':')
+        call add(l:qflist, {
+              \ 'filename': sl[0],
+              \ 'lnum': sl[1],
+              \ 'col': sl[2],
+              \ 'type': substitute(sl[3], ' ', '', ''),
+              \ 'text': strpart(sl[4], 0, 70) . '...',
+              \})
+        execute 'sign place ' . id . ' line=' . sl[1] . ' name=' . substitute(sl[3], ' ', '', '') . ' file=' . sl[0]
+        let id += 1
+      endfor
+      call setqflist(l:qflist)
+      execute 'copen' len(l:qflist) + 4
+    else
+      execute 'cclose'
+      execute 'sign unplace *'
+      call s:DapsValidate()
+    endif
   else
-    execute 'cclose'
-    execute 'sign unplace *'
-    call s:DapsValidate()
+    echoe 'Cannot extract schema URI for ' . b:doctype
   endif
 endfunction
 
@@ -305,11 +321,29 @@ function s:DapsImportEntites(...)
   unlet sorted
   unlet line
 endfunction
-
+" lookup doctyp info from xml/schemas.xml file
+function s:DapsLookupSchemasXML()
+  " test for the xml/schemas.xml file
+  if filereadable('xml/schemas.xml')
+    let l:x_query = '/t:locatingRules/t:uri/@uri'
+    let l:x_cmd = "xmlstarlet sel -T -N t='http://thaiopensource.com/ns/locating-rules/1.0' -t -v '" . l:x_query . "' xml/schemas.xml"
+    let l:x_result = systemlist(l:x_cmd)[0]
+    if filereadable(l:x_result)
+      return l:x_result
+    endif
+  endif
+endfunction
 "remember the script's directory
 let s:plugindir = expand('<sfile>:p:h:h')
 
 " ------------- options for ~/.vimrc ------------ "
+" do the DB schema resolving
+let g:daps_db_schema = {
+      \'https://github.com/openSUSE/geekodoc/raw/master/geekodoc/rng/geekodoc5-flat.rng': 'geekodoc5',
+      \'https://github.com/openSUSE/geekodoc/raw/master/geekodoc/rng/geekodoc5-flat.rnc': 'geekodoc5',
+      \'http://www.oasis-open.org/docbook/xml/5.0/rng/docbook.rng': 'docbook50',
+      \'http://www.oasis-open.org/docbook/xml/5.0/rng/docbook.rnc': 'docbook50',
+      \}
 " decide whether ask for DC file on startup and do so if yes
 if exists("g:daps_dcfile_autostart")
   let b:dcfile_autostart = g:daps_dcfile_autostart
@@ -339,6 +373,22 @@ else
 endif
 if b:entity_import_autostart == 1
   autocmd BufReadPost,FileType docbk call s:DapsSetDoctype()
+endif
+" decide whether to read the xml/schemas.xml file for DocType
+if exists("g:daps_xmlschemas_autostart")
+  if g:daps_xmlschemas_autostart == 1
+    let x_schema = s:DapsLookupSchemasXML()
+    if !empty(x_schema)
+      " find the right doctype accross URI
+      for [key, value] in items(g:daps_db_schema)
+        let schema_file = systemlist('xmlcatalog /etc/xml/catalog ' . key)[0]
+        if schema_file == x_schema
+          call s:DapsSetDoctype(value)
+          break
+        endif
+      endfor
+    endif
+  endif
 endif
 
 " restore the value of cpoptions

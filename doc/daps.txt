@@ -44,7 +44,7 @@ Commands:
 
 :DapsSetDoctype <doctype>
   Set DocType for DocBook documents and import available entities. vim-daps
-   ships with 'docbook45', 'docbook50' (default), and 'geekodoc5'.
+   ships with 'docbook50' (default), and 'geekodoc5'.
 
 
                                                            *daps-settings*
@@ -74,3 +74,7 @@ g:daps_html_viewer = <command>
 g:daps_pdf_viewer = <command>
   Set the default application for viewing PDF output. Default is the desktop
   environment's MIME handler.
+
+g:daps_xmlschemas_autostart = 0 or 1
+  If set to 1, looks for the 'xml/schemas.xml' file and parses the DocBook schema URI
+  from it, possibly overriding the 'g:daps_doctype' setting.
