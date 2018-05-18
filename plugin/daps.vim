@@ -102,7 +102,7 @@ function s:DapsSetDoctype(...)
   else
     let b:doctype = a:1
   endif
-  execute 'XMLns ' . b:doctype
+  call xmlcomplete#CreateConnection(b:doctype)
   call s:DapsImportEntites()
 endfunction
 
