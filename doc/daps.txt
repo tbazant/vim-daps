@@ -44,8 +44,16 @@ Commands:
 
 :DapsSetDoctype <doctype>
   Set DocType for DocBook documents and import available entities. vim-daps
-   ships with 'docbook50' (default), and 'geekodoc5'.
+  ships with 'docbook50' (default), and 'geekodoc5'.
 
+:DapsStylecheck
+  Check the current buffer's DocBook and content style, then displays
+  error messages in a quickfix window.
+
+:DapsListFile <target_id>
+  Opens a new tab with a file that contains the specified xml:id. You can
+  specify the ID in the command line with tab-completion, or place a cursor
+  on a <xref> line and the ID will be read for you.
 
                                                            *daps-settings*
 g:daps_dcfile_autostart = 1 or 0

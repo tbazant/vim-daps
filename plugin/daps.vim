@@ -1,4 +1,4 @@
-" Vim filetype plugin that implements some features of daps (https://opensuse.github.io/daps)
+" Vim plugin that implements some features of daps (https://opensuse.github.io/daps)
 " Last Change:  2017 Nov 29
 " Maintainer:   Tomáš Bažant <tomas.bazant@yahoo.com>
 " License:      This file is placed in the public domain.
@@ -12,7 +12,6 @@ if exists("g:loaded_daps")
   finish
 endif
 let g:loaded_daps = 1
-
 
 " ------------- command definitions ------------ "
 " dummy command and function for testing purposes
@@ -57,6 +56,10 @@ endif
 if !exists(":DapsPdf")
   command -nargs=0 DapsPdf :call s:DapsBuild('pdf')
 endif
+" daps list-file
+if !exists(":DapsListFile")
+  command -nargs=? -complete=custom,s:ListXrefTargets DapsListFile :call s:DapsListFile(<f-args>)
+endif
 " ------------- command definitions end ------------ "
 "
 " ------------- functions ------------ "
@@ -74,6 +77,13 @@ function s:ListXMLdictionaries(A,L,P)
   return join(result, "\n")
 endfunction
 
+" list all <xref>s' IDs from the current buffer
+function s:ListXrefTargets(A,L,P)
+  "let cmd = 'xsltproc --xinclude /usr/share/daps/daps-xslt/common/get-all-xmlids.xsl xml/admin_gui_oa.xml | sort -u'
+  let cmd = 'xsltproc ' . s:plugindir . '/tools/get-all-xrefsids.xsl ' . expand('%') . ' | sort -u'
+  return system(cmd)
+endfunction
+
 " autoask for DC file
 function s:AskForDCFile()
   call inputsave()
@@ -89,6 +99,33 @@ endfunction
 " set current buffer's DC-* file
 function s:DapsSetDCfile(dc_file)
   let b:dc_file = a:dc_file
+endfunction
+
+" implement `daps list-file`
+function s:DapsListFile(...)
+  if a:0 == 0
+    " check if cursor is on '<xref linkend=""' line and use a --rootid
+    let rootid = matchstr(getline("."), '\c linkend=\([''"]\)\zs.\{-}\ze\1')
+    if empty(rootid)
+      echoerr "No 'rootid' specified, neither found on the current line"
+      return 1
+    endif
+  else
+    " ID was supplied :-)
+    let rootid = a:1
+  endif
+  if !empty(s:IsDCfileSet())
+    let file_cmd = 'daps -d ' . b:dc_file . ' list-file --rootid=' . rootid
+    let file = systemlist(file_cmd)[0]
+    if filereadable(file)
+      " grep the file for a line number and open it
+      let line_cmd = "grep -n \"[\\\"']" . rootid . "[\\\"']\" " . file . " | awk -F: '{print $1}'"
+      let line = systemlist(line_cmd)[0]
+      execute 'tabnew +' . line file
+    else
+      echoerr rootid . ' not found in any file.'
+    endif
+  endif
 endfunction
 
 " set doctype for DB documents
@@ -133,7 +170,7 @@ function s:DapsStylecheck()
   if !empty(s:IsDCfileSet())
     " find out the location of the style result XML file
     let style_xml = system('daps -d ' . b:dc_file . ' stylecheck --file ' . expand('%'))
-    let style_result = systemlist('xsltproc ~/.vim/plugged/vim-daps/tools/vim_stylecheck.xsl ' . style_xml)
+    let style_result = systemlist('xsltproc ' . s:plugindir . '/tools/vim_stylecheck.xsl ' . style_xml)
     if !empty(style_result)
       " define signs
       sign define error text=E
@@ -296,8 +333,6 @@ function s:DapsImportEntites(...)
     let ent_files = a:000
   endif
 
-  "let g:xmldata_{b:doctype}['vimxmlentities'] = []
-
   for ent_file in ent_files
     " check if file exists
     let ent_file = expand(ent_file)
@@ -333,8 +368,9 @@ function s:DapsLookupSchemasXML()
     endif
   endif
 endfunction
+
 "remember the script's directory
-let s:plugindir = expand('<sfile>:p:h:h')
+let s:plugindir = resolve(expand('<sfile>:p:h:h'))
 
 " ------------- options for ~/.vimrc ------------ "
 " do the DB schema resolving
