@@ -155,6 +155,10 @@ endfunction
 " validates the document based on the DC file with tab completion
 function s:DapsValidate()
   if !empty(s:IsDCfileSet())
+    " check whether to run DaspValidateFile first
+    if b:daps_auto_validate_file == 1 && s:DapsValidateFile() == 1
+      return 1
+    endif
     let result = system('daps -d ' . b:dc_file . ' validate')
     if v:shell_error == 0
       echom 'All files are valid.'
@@ -246,48 +250,52 @@ function s:DapsValidateFile()
       endfor
       call setqflist(l:qflist)
       execute 'copen' len(l:qflist) + 4
+      return 1
     else
       execute 'cclose'
       execute 'sign unplace *'
-      call s:DapsValidate()
+      echom 'The current buffer is valid.'
     endif
   else
     echoe 'Cannot extract schema URI for ' . b:doctype
+    return 1
   endif
 endfunction
 
 " builds the current chapter or --rootid
 function s:DapsBuild(target)
   if !empty(s:IsDCfileSet())
-    " check if cursor is on 'id=""' line and use a --rootid
-    let l:rootid = matchstr(getline("."), '\c xml:id=\([''"]\)\zs.\{-}\ze\1')
-    if !empty(l:rootid)
-      " --rootid is limited to the following elements
-      let l:rootids = ['appendix', 'article', 'bibliography', 'book', 'chapter', 'glossary',
-            \ 'index', 'part', 'preface', 'sect1', 'section']
-      let l:element = matchstr(getline("."), '<\w\+')
-      if match(l:rootids, l:element[1:]) == -1
-        let l:rootid = ''
+    if s:DapsValidate() == 0
+      " check if cursor is on 'id=""' line and use a --rootid
+      let l:rootid = matchstr(getline("."), '\c xml:id=\([''"]\)\zs.\{-}\ze\1')
+      if !empty(l:rootid)
+        " --rootid is limited to the following elements
+        let l:rootids = ['appendix', 'article', 'bibliography', 'book', 'chapter', 'glossary',
+              \ 'index', 'part', 'preface', 'sect1', 'section']
+        let l:element = matchstr(getline("."), '<\w\+')
+        if match(l:rootids, l:element[1:]) == -1
+          let l:rootid = ''
+        endif
       endif
+      if empty(l:rootid)
+        let l:rootid = matchstr(join(getline(1,'$')), '\c xml:id=\([''"]\)\zs.\{-}\ze\1')
+      endif
+      " assemble daps cmdline
+      let l:dapscmd = 'daps -d ' . b:dc_file . ' ' . a:target . ' --rootid=' . l:rootid
+      let l:target_dir = systemlist(l:dapscmd)[0]
+      if a:target == 'html'
+        let l:target_file = join([l:target_dir, 'index.html'], '')
+      else
+        let l:target_file = l:target_dir
+      endif
+      if exists("g:daps_" . a:target . "_viewer")
+        let l:doc_viewer = g:daps_{a:target}_viewer
+        silent execute '!' . l:doc_viewer . ' ' . l:target_file
+      else
+        silent execute '!xdg-open ' . l:target_file
+      endif
+      execute 'redraw!'
     endif
-    if empty(l:rootid)
-      let l:rootid = matchstr(join(getline(1,'$')), '\c xml:id=\([''"]\)\zs.\{-}\ze\1')
-    endif
-    " assemble daps cmdline
-    let l:dapscmd = 'daps -d ' . b:dc_file . ' ' . a:target . ' --rootid=' . l:rootid
-    let l:target_dir = systemlist(l:dapscmd)[0]
-    if a:target == 'html'
-      let l:target_file = join([l:target_dir, 'index.html'], '')
-    else
-      let l:target_file = l:target_dir
-    endif
-    if exists("g:daps_" . a:target . "_viewer")
-      let l:doc_viewer = g:daps_{a:target}_viewer
-      silent execute '!' . l:doc_viewer . ' ' . l:target_file
-    else
-      silent execute '!xdg-open ' . l:target_file
-    endif
-    execute 'redraw!'
   endif
 endfunction
 
@@ -400,6 +408,12 @@ if exists("g:daps_entfile_glob_pattern")
   let g:entfile_glob_pattern = g:daps_entfile_glob_pattern
 else
   let g:entfile_glob_pattern = "*"
+endif
+" decide whether run :DapsValidateFile before :DapsValidate
+if exists("g:daps_auto_validate_file")
+  let b:daps_auto_validate_file = g:daps_auto_validate_file
+else
+  let b:daps_auto_validate_file = 0
 endif
 " decide whether run entity, set doctype, and import on new file open
 if exists("g:daps_entity_import_autostart")

@@ -85,4 +85,8 @@ g:daps_pdf_viewer = <command>
 
 g:daps_xmlschemas_autostart = 0 or 1
   If set to 1, looks for the 'xml/schemas.xml' file and parses the DocBook schema URI
-  from it, possibly overriding the 'g:daps_doctype' setting.
+  from it, possibly overriding the 'g:daps_doctype' setting. Default is 0.
+
+g:daps_auto_validate_file = 0 or 1
+  If set to 1, :DapsValidateFile() is run on the current buffer before :DapsValidate().
+  Default is 0.
