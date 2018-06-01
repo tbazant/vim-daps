@@ -255,6 +255,7 @@ function s:DapsValidateFile()
       execute 'cclose'
       execute 'sign unplace *'
       echom 'The current buffer is valid.'
+      return 0
     endif
   else
     echoe 'Cannot extract schema URI for ' . b:doctype
