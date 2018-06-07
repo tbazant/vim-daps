@@ -115,7 +115,7 @@ function s:DapsListFile(...)
     let rootid = a:1
   endif
   if !empty(s:IsDCfileSet())
-    let file_cmd = 'daps -d ' . b:dc_file . ' list-file --rootid=' . rootid
+    let file_cmd = 'daps -d ' . b:dc_file . ' list-file --rootid=' . rootid . ' 2> /dev/null'
     let file = systemlist(file_cmd)[0]
     if filereadable(file)
       " grep the file for a line number and open it
@@ -159,7 +159,7 @@ function s:DapsValidate()
     if b:daps_auto_validate_file == 1 && s:DapsValidateFile() == 1
       return 1
     endif
-    let result = system('daps -d ' . b:dc_file . ' validate')
+    let result = system('daps -d ' . b:dc_file . ' validate' . ' 2> /dev/null')
     if v:shell_error == 0
       echom 'All files are valid.'
       return 0
@@ -173,7 +173,7 @@ endfunction
 function s:DapsStylecheck()
   if !empty(s:IsDCfileSet())
     " find out the location of the style result XML file
-    let style_xml = system('daps -d ' . b:dc_file . ' stylecheck --file ' . expand('%'))
+    let style_xml = system('daps -d ' . b:dc_file . ' stylecheck --file ' . expand('%') . ' 2> /dev/null')
     let style_result = systemlist('xsltproc ' . s:plugindir . '/tools/vim_stylecheck.xsl ' . style_xml)
     if !empty(style_result)
       " define signs
@@ -282,7 +282,7 @@ function s:DapsBuild(target)
         let l:rootid = matchstr(join(getline(1,'$')), '\c xml:id=\([''"]\)\zs.\{-}\ze\1')
       endif
       " assemble daps cmdline
-      let l:dapscmd = 'daps -d ' . b:dc_file . ' ' . a:target . ' --rootid=' . l:rootid
+      let l:dapscmd = 'daps -d ' . b:dc_file . ' ' . a:target . ' --rootid=' . l:rootid . ' 2> /dev/null'
       let l:target_dir = systemlist(l:dapscmd)[0]
       if a:target == 'html'
         let l:target_file = join([l:target_dir, 'index.html'], '')
