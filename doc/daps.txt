@@ -50,10 +50,13 @@ Commands:
   Check the current buffer's DocBook and content style, then displays
   error messages in a quickfix window.
 
-:DapsListFile <target_id>
+:DapsOpenTarget <target_id>
   Opens a new tab with a file that contains the specified xml:id. You can
   specify the ID in the command line with tab-completion, or place a cursor
-  on a <xref> line and the ID will be read for you.
+  on a <xref> line and the ID will be read for you. If the current line
+  contains <link xlink:href=", the URL is opened in a Web browser window.
+  If both <xref> and <link> are on the current line, both the referenced
+  file is opene in a new tab, and the URL in a browser.
 
                                                            *daps-settings*
 g:daps_dcfile_autostart = 1 or 0

@@ -57,8 +57,8 @@ if !exists(":DapsPdf")
   command -nargs=0 DapsPdf :call s:DapsBuild('pdf')
 endif
 " daps list-file
-if !exists(":DapsListFile")
-  command -nargs=? -complete=custom,s:ListXrefTargets DapsListFile :call s:DapsListFile(<f-args>)
+if !exists(":DapsOpenTarget")
+  command -nargs=? -complete=custom,s:ListXrefTargets DapsOpenTarget :call s:DapsOpenTarget(<f-args>)
 endif
 " ------------- command definitions end ------------ "
 "
@@ -102,28 +102,38 @@ function s:DapsSetDCfile(dc_file)
 endfunction
 
 " implement `daps list-file`
-function s:DapsListFile(...)
-  if a:0 == 0
-    " check if cursor is on '<xref linkend=""' line and use a --rootid
-    let rootid = matchstr(getline("."), '\c linkend=\([''"]\)\zs.\{-}\ze\1')
-    if empty(rootid)
-      echoerr "No 'rootid' specified, neither found on the current line"
-      return 1
-    endif
-  else
+function s:DapsOpenTarget(...)
+  if a:0 > 0
     " ID was supplied :-)
     let rootid = a:1
+  else
+    " check if cursor is on '<xref linkend=""' line and use as a --rootid
+    let rootid = matchstr(getline("."), '\c linkend=\([''"]\)\zs.\{-}\ze\1')
+    " check if cursor is on '<link xlink:href=""' line
+    let href = matchstr(getline("."), '\c xlink:href=\([''"]\)\zs.\{-}\ze\1')
+    if empty(rootid)
+    endif
+    if !empty(href)
+      if exists("g:daps_html_viewer")
+        silent execute '!' . g:daps_html_viewer . ' ' . href . ' > /dev/null 2>&1'
+      else
+        silent execute '!xdg-open ' . href . ' > /dev/null 2>&1'
+      endif
+      execute 'redraw!'
+    endif
   endif
-  if !empty(s:IsDCfileSet())
-    let file_cmd = 'daps -d ' . b:dc_file . ' list-file --rootid=' . rootid . ' 2> /dev/null'
-    let file = systemlist(file_cmd)[0]
-    if filereadable(file)
-      " grep the file for a line number and open it
-      let line_cmd = "grep -n \"[\\\"']" . rootid . "[\\\"']\" " . file . " | awk -F: '{print $1}'"
-      let line = systemlist(line_cmd)[0]
-      execute 'tabnew +' . line file
-    else
-      echoerr rootid . ' not found in any file.'
+  if !empty(rootid)
+    if !empty(s:IsDCfileSet())
+      let file_cmd = 'daps -d ' . b:dc_file . ' list-file --rootid=' . rootid . ' 2> /dev/null'
+      let file = systemlist(file_cmd)[0]
+      if filereadable(file)
+        " grep the file for a line number and open it
+        let line_cmd = "grep -n \"[\\\"']" . rootid . "[\\\"']\" " . file . " | awk -F: '{print $1}'"
+        let line = systemlist(line_cmd)[0]
+        execute 'tabnew +' . line file
+      else
+        echoerr rootid . ' not found in any file.'
+      endif
     endif
   endif
 endfunction
@@ -291,9 +301,9 @@ function s:DapsBuild(target)
       endif
       if exists("g:daps_" . a:target . "_viewer")
         let l:doc_viewer = g:daps_{a:target}_viewer
-        silent execute '!' . l:doc_viewer . ' ' . l:target_file
+        silent execute '!' . l:doc_viewer . ' ' . l:target_file . ' > /dev/null 2>&1'
       else
-        silent execute '!xdg-open ' . l:target_file
+        silent execute '!xdg-open ' . l:target_file . ' > /dev/null 2>&1'
       endif
       execute 'redraw!'
     endif
