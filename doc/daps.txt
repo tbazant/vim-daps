@@ -60,8 +60,9 @@ Commands:
 
                                                            *daps-settings*
 g:daps_dcfile_autostart = 1 or 0
-  Specifies if Vim should ask you for the DC file for the current
-  buffer automatically after new buffer is opened. Note that if DC
+  Specifies if Vim should ask you for the DC file for the first
+  buffer automatically after the buffer is opened. If set to 0, Vim asks you
+  for the DC file when a daps command needs it. Note that if the DC file
   is already provided and you open a new tab, the DC you already provided
   will be used without asking for a new one. You can override the DC file name
   with :DapsSetDCfile for the current buffer.

@@ -1,5 +1,4 @@
 " Vim plugin that implements some features of daps (https://opensuse.github.io/daps)
-" Last Change:  2017 Nov 29
 " Maintainer:   Tomáš Bažant <tomas.bazant@yahoo.com>
 " License:      This file is placed in the public domain.
 
@@ -84,21 +83,26 @@ function s:ListXrefTargets(A,L,P)
   return system(cmd)
 endfunction
 
-" autoask for DC file
+" ask for DC file
 function s:AskForDCFile()
   call inputsave()
-  if !exists("g:daps_dc_file")
-    let g:daps_dc_file = input("Enter DC file: ", g:dcfile_glob_pattern, "file")
-    call s:DapsSetDCfile(g:daps_dc_file)
-    call inputrestore()
-  else
-    call s:DapsSetDCfile(g:daps_dc_file)
-  endif
+  let dc_file = input("Enter DC file: ", g:dcfile_glob_pattern, "file")
+  call inputrestore()
+  redrawstatus
+  return s:DapsSetDCfile(dc_file)
 endfunction
 
 " set current buffer's DC-* file
 function s:DapsSetDCfile(dc_file)
-  let b:dc_file = a:dc_file
+  if filereadable(a:dc_file)
+    "set dc_file for current buffer
+    let b:dc_file = a:dc_file
+    "set dc_file globally so that new buffers get it from the previous ones
+    let g:daps_dc_file = b:dc_file
+    return b:dc_file
+  else
+    echoerr "The specified DC file is not readable."
+  endif
 endfunction
 
 " implement `daps list-file`
@@ -154,11 +158,14 @@ function s:DapsSetDoctype(...)
 endfunction
 
 " check if DC file was previously set via DapsSetDCfile()
-function s:IsDCfileSet() abort
+function s:IsDCfileSet()
   if exists("b:dc_file")
     return b:dc_file
+  elseif exists("g:daps_dc_file")
+    let b:dc_file = g:daps_dc_file
+    return b:dc_file
   else
-    echoerr "No DC file specified, use :DapsSetDCfile to specify it!"
+    return s:AskForDCFile()
   endif
 endfunction
 
@@ -166,7 +173,7 @@ endfunction
 function s:DapsValidate()
   if !empty(s:IsDCfileSet())
     " check whether to run DaspValidateFile first
-    if b:daps_auto_validate_file == 1 && s:DapsValidateFile() == 1
+    if g:daps_auto_validate_file == 1 && s:DapsValidateFile() == 1
       return 1
     endif
     let result = system('daps -d ' . b:dc_file . ' validate' . ' 2> /dev/null')
@@ -454,7 +461,3 @@ endif
 
 " restore the value of cpoptions
 let &cpo = s:save_cpo
-
-" O L D   S T U F F
-" find toplevel chapter ID:
-"let l:rootidcmd = "xmlstarlet sel -T -N db='http://docbook.org/ns/docbook' -t -v '//db:chapter/@xml:id' " . expand('%')
