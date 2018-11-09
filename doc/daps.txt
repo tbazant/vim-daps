@@ -58,6 +58,10 @@ Commands:
   If both <xref> and <link> are on the current line, both the referenced
   file is opene in a new tab, and the URL in a browser.
 
+:DapsSetBuilddir <build_dir>
+  Set the target directory for the --builddir option. Each buffer can have
+  its own build_dir.
+
                                                            *daps-settings*
 g:daps_dcfile_autostart = 1 or 0
   Specifies if Vim should ask you for the DC file for the first
@@ -94,3 +98,7 @@ g:daps_xmlschemas_autostart = 0 or 1
 g:daps_auto_validate_file = 0 or 1
   If set to 1, :DapsValidateFile() is run on the current buffer before :DapsValidate().
   Default is 0.
+
+g:daps_builddir = <directory>
+  Set the --builddir directory for the current buffer. Default is the 'build/' subdirectory
+  of the current directory.

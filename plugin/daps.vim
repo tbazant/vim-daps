@@ -12,56 +12,69 @@ if exists("g:loaded_daps")
 endif
 let g:loaded_daps = 1
 
-" ------------- command definitions ------------ "
+" - - - - - - - - - - - - -  c o m m a n d   d e f i n i t i o n s   - - - - - - - - - - - - "
 " dummy command and function for testing purposes
 if !exists(":DapsDummy")
   command -nargs=* DapsDummy :call s:DapsDummy(<f-args>)
 endif
 
-
 " set default DC-* file for current buffer
 if !exists(":DapsSetDCfile")
   command -complete=custom,s:ListDCfiles -nargs=1 DapsSetDCfile :call s:DapsSetDCfile(<f-args>)
 endif
+
 " set DocType (version) for DocBook (and derived) documents
 if !exists(":DapsSetDoctype")
   command -complete=custom,s:ListXMLdictionaries -nargs=* DapsSetDoctype :call s:DapsSetDoctype(<f-args>)
 endif
+
 " import DB entities from external file
 if !exists(":DapsImportEntites")
   command -complete=file -nargs=* DapsImportEntites :call s:DapsImportEntites(<f-args>)
 endif
+
 " daps validate
 if !exists(":DapsValidate")
   command -nargs=0 DapsValidate :call s:DapsValidate(<f-args>)
 endif
+
 " daps validate file
 if !exists(":DapsValidateFile")
   command -nargs=0 DapsValidateFile :call s:DapsValidateFile(<f-args>)
 endif
+
 " daps style check
 if !exists(":DapsStylecheck")
   command -nargs=0 DapsStylecheck :call s:DapsStylecheck(<f-args>)
 endif
+
 " daps xmlformat
 if !exists(":DapsXmlFormat")
   command -nargs=0 DapsXmlFormat :call s:DapsXmlFormat(<f-args>)
 endif
+
 " daps html
 if !exists(":DapsHtml")
   command -nargs=0 DapsHtml :call s:DapsBuild('html')
 endif
+
 " daps pdf
 if !exists(":DapsPdf")
   command -nargs=0 DapsPdf :call s:DapsBuild('pdf')
 endif
+
 " daps list-file
 if !exists(":DapsOpenTarget")
   command -nargs=? -complete=custom,s:ListXrefTargets DapsOpenTarget :call s:DapsOpenTarget(<f-args>)
 endif
-" ------------- command definitions end ------------ "
-"
-" ------------- functions ------------ "
+
+" --builddir
+if !exists(":DapsSetBuilddir")
+  command -nargs=1 -complete=file DapsSetBuilddir :call s:DapsSetBuilddir(<f-args>)
+endif
+" - - - - - - - - - - - -  e n d   c o m m a n d   d e f i n i t i o n s   - - - - - - - - - - - "
+
+" - - - - - - - - - - - - -   f u n c t i o n s   - - - - - - - - - - - - "
 
 " lists all DC files in the current directory
 function s:ListDCfiles(A,L,P)
@@ -299,7 +312,7 @@ function s:DapsBuild(target)
         let l:rootid = matchstr(join(getline(1,'$')), '\c xml:id=\([''"]\)\zs.\{-}\ze\1')
       endif
       " assemble daps cmdline
-      let l:dapscmd = 'daps -d ' . b:dc_file . ' ' . a:target . ' --rootid=' . l:rootid . ' 2> /dev/null'
+      let l:dapscmd = 'daps -d ' . b:dc_file . ' --builddir=' . b:builddir . ' ' . a:target . ' --rootid=' . l:rootid . ' 2> /dev/null'
       let l:target_dir = systemlist(l:dapscmd)[0]
       if a:target == 'html'
         let l:target_file = join([l:target_dir, 'index.html'], '')
@@ -382,6 +395,7 @@ function s:DapsImportEntites(...)
   unlet sorted
   unlet line
 endfunction
+
 " lookup doctyp info from xml/schemas.xml file
 function s:DapsLookupSchemasXML()
   " test for the xml/schemas.xml file
@@ -395,10 +409,26 @@ function s:DapsLookupSchemasXML()
   endif
 endfunction
 
+" set --buildroot for the current buffer
+function s:DapsSetBuilddir(builddir)
+  " check if builddir exists and if it is a writable directory
+  if filewritable(a:builddir) == 2
+    let b:builddir = a:builddir
+  elseif mkdir(a:builddir, "p")
+    let b:builddir = a:builddir
+  else
+    echoerr a:builddir . ' is not a writable directory'
+  endif
+endfunction
+
+
+" - - - - - - - - - - - - -  e n d  f u n c t i o n s   - - - - - - - - - - - - "
+
 "remember the script's directory
 let s:plugindir = resolve(expand('<sfile>:p:h:h'))
 
-" ------------- options for ~/.vimrc ------------ "
+" - - - - - - - - - - - - - o p t i o n s   f o r   ~/.vimrc - - - - - - - - - - - - "
+
 " do the DB schema resolving
 let g:daps_db_schema = {
       \'https://github.com/openSUSE/geekodoc/raw/master/geekodoc/rng/geekodoc5-flat.rng': 'geekodoc5',
@@ -406,6 +436,7 @@ let g:daps_db_schema = {
       \'http://www.oasis-open.org/docbook/xml/5.0/rng/docbook.rng': 'docbook50',
       \'http://www.oasis-open.org/docbook/xml/5.0/rng/docbook.rnc': 'docbook50',
       \}
+
 " decide whether ask for DC file on startup and do so if yes
 if exists("g:daps_dcfile_autostart")
   let b:dcfile_autostart = g:daps_dcfile_autostart
@@ -415,24 +446,28 @@ endif
 if b:dcfile_autostart == 1
   autocmd BufReadPost,FileType docbk call s:AskForDCFile()
 endif
+
 " set default pattern for DC file completion
 if exists("g:daps_dcfile_glob_pattern")
   let g:dcfile_glob_pattern = g:daps_dcfile_glob_pattern
 else
   let g:dcfile_glob_pattern = ""
 endif
+
 " set default pattern for entity file completion
 if exists("g:daps_entfile_glob_pattern")
   let g:entfile_glob_pattern = g:daps_entfile_glob_pattern
 else
   let g:entfile_glob_pattern = "*"
 endif
+
 " decide whether run :DapsValidateFile before :DapsValidate
 if exists("g:daps_auto_validate_file")
   let b:daps_auto_validate_file = g:daps_auto_validate_file
 else
   let b:daps_auto_validate_file = 0
 endif
+
 " decide whether run entity, set doctype, and import on new file open
 if exists("g:daps_entity_import_autostart")
   let b:entity_import_autostart = g:daps_entity_import_autostart
@@ -442,6 +477,7 @@ endif
 if b:entity_import_autostart == 1
   autocmd BufReadPost,FileType docbk call s:DapsSetDoctype()
 endif
+
 " decide whether to read the xml/schemas.xml file for DocType
 if exists("g:daps_xmlschemas_autostart")
   if g:daps_xmlschemas_autostart == 1
@@ -458,6 +494,14 @@ if exists("g:daps_xmlschemas_autostart")
     endif
   endif
 endif
+
+" check if 'g:daps_builddir' exists and trigger setting it in current buffer
+if !exists("g:daps_builddir")
+  let g:daps_builddir = getcwd() . '/build/'
+endif
+call s:DapsSetBuilddir(g:daps_builddir)
+
+" - - - - - - - - - - - - - e n d   o p t i o n s   f o r   ~/.vimrc - - - - - - - - - - - - "
 
 " restore the value of cpoptions
 let &cpo = s:save_cpo
