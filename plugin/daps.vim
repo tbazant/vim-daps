@@ -2,6 +2,8 @@
 " Maintainer:   Tomáš Bažant <tomas.bazant@yahoo.com>
 " License:      This file is placed in the public domain.
 
+
+" - - - - - - - - - - - - - - i n i t i a l   s e t u p - - - - - - - - - - "
 " save the value of cpoptions
 let s:save_cpo = &cpo
 set cpo&vim
@@ -12,6 +14,21 @@ if exists("g:loaded_daps")
 endif
 let g:loaded_daps = 1
 
+" remember the script's directory
+let s:plugindir = resolve(expand('<sfile>:p:h:h'))
+
+" remember daps installation base dir
+let s:dapsdir = system('which daps')[:-11]
+
+" fill the  DB schema resolving hash
+let g:daps_db_schema = {
+      \'https://github.com/openSUSE/geekodoc/raw/master/geekodoc/rng/geekodoc5-flat.rng': 'geekodoc5',
+      \'https://github.com/openSUSE/geekodoc/raw/master/geekodoc/rng/geekodoc5-flat.rnc': 'geekodoc5',
+      \'http://www.oasis-open.org/docbook/xml/5.0/rng/docbook.rng': 'docbook50',
+      \'http://www.oasis-open.org/docbook/xml/5.0/rng/docbook.rnc': 'docbook50',
+      \}
+
+" - - - - - - - - - - - - - - e n d    i n i t i a l   s e t u p - - - - - - - - - - "
 " - - - - - - - - - - - - -  c o m m a n d   d e f i n i t i o n s   - - - - - - - - - - - - "
 " dummy command and function for testing purposes
 if !exists(":DapsDummy")
@@ -72,6 +89,11 @@ endif
 if !exists(":DapsSetBuilddir")
   command -nargs=1 -complete=file DapsSetBuilddir :call s:DapsSetBuilddir(<f-args>)
 endif
+
+" import all XML IDs given a DC-file
+if !exists(":DapsImportXmlIds")
+  command -nargs=0 DapsImportXmlIds :call s:DapsImportXmlIds()
+endif
 " - - - - - - - - - - - -  e n d   c o m m a n d   d e f i n i t i o n s   - - - - - - - - - - - "
 
 " - - - - - - - - - - - - -   f u n c t i o n s   - - - - - - - - - - - - "
@@ -96,6 +118,16 @@ function s:ListXrefTargets(A,L,P)
   return system(cmd)
 endfunction
 
+" import all XML IDs given a DC-file
+function s:DapsImportXmlIds()
+  if !empty(s:IsDCfileSet())
+    " grep MAIN file out of the DC-file
+    let main_file = matchstr(system('grep "^\s*MAIN=" ' . b:dc_file), '"\zs[^"]\+\ze"')
+    let xsltproc_cmd = 'xsltproc --xinclude ' . s:dapsdir . '/share/daps/daps-xslt/common/get-all-xmlids.xsl xml/' . main_file
+    let g:xmldata_geekodoc5.xref[1].linkend = sort(systemlist(xsltproc_cmd))
+  endif
+endfunction
+
 " ask for DC file
 function s:AskForDCFile()
   call inputsave()
@@ -112,6 +144,9 @@ function s:DapsSetDCfile(dc_file)
     let b:dc_file = a:dc_file
     "set dc_file globally so that new buffers get it from the previous ones
     let g:daps_dc_file = b:dc_file
+    if g:daps_auto_import_xmlids == 1
+      call s:DapsImportXmlIds()
+    endif
     return b:dc_file
   else
     echoerr "The specified DC file is not readable."
@@ -224,7 +259,7 @@ function s:DapsStylecheck()
           endif
           let filename = expand('xml/' . sl[0])
           " remove this once Stefan fixes the line numbering
-          let lnum = sl[1] + 5
+          let lnum = sl[1] + 6
           call add(l:qflist, {
                 \ 'filename': filename,
                 \ 'lnum': lnum,
@@ -424,18 +459,9 @@ endfunction
 
 " - - - - - - - - - - - - -  e n d  f u n c t i o n s   - - - - - - - - - - - - "
 
-"remember the script's directory
-let s:plugindir = resolve(expand('<sfile>:p:h:h'))
 
 " - - - - - - - - - - - - - o p t i o n s   f o r   ~/.vimrc - - - - - - - - - - - - "
 
-" do the DB schema resolving
-let g:daps_db_schema = {
-      \'https://github.com/openSUSE/geekodoc/raw/master/geekodoc/rng/geekodoc5-flat.rng': 'geekodoc5',
-      \'https://github.com/openSUSE/geekodoc/raw/master/geekodoc/rng/geekodoc5-flat.rnc': 'geekodoc5',
-      \'http://www.oasis-open.org/docbook/xml/5.0/rng/docbook.rng': 'docbook50',
-      \'http://www.oasis-open.org/docbook/xml/5.0/rng/docbook.rnc': 'docbook50',
-      \}
 
 " decide whether ask for DC file on startup and do so if yes
 if exists("g:daps_dcfile_autostart")
@@ -500,6 +526,11 @@ if !exists("g:daps_builddir")
   let g:daps_builddir = getcwd() . '/build/'
 endif
 call s:DapsSetBuilddir(g:daps_builddir)
+
+" check if 'g:daps_auto_import_xmlids' exists and set default value
+if !exists("g:daps_auto_import_xmlids")
+  let g:daps_auto_import_xmlids = 1
+endif
 
 " - - - - - - - - - - - - - e n d   o p t i o n s   f o r   ~/.vimrc - - - - - - - - - - - - "
 

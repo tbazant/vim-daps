@@ -61,6 +61,9 @@ Commands:
 :DapsSetBuilddir <build_dir>
   Set the target directory for the --builddir option. Each buffer can have
   its own build_dir.
+:DapsImportXmlIds
+  Imports XML IDs from the current book/bookset based on a provided DC file.
+  You can then auto complete them inside the '<xref linkend=""/>' tag.
 
                                                            *daps-settings*
 g:daps_dcfile_autostart = 1 or 0
@@ -102,3 +105,7 @@ g:daps_auto_validate_file = 0 or 1
 g:daps_builddir = <directory>
   Set the --builddir directory for the current buffer. Default is the 'build/' subdirectory
   of the current directory.
+
+g:daps_auto_import_xmlids = 0 or 1
+  Whether or not import all the XML IDs related for the current DC file
+  to XML omnicompletion after a DC file is specified. Default is 1.
