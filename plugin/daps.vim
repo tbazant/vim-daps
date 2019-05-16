@@ -179,10 +179,9 @@ function s:DapsOpenTarget(...)
       let file_cmd = 'daps -d ' . b:dc_file . ' list-file --rootid=' . rootid . ' 2> /dev/null'
       let file = systemlist(file_cmd)[0]
       if filereadable(file)
-        " grep the file for a line number and open it
-        let line_cmd = "grep -n \"[\\\"']" . rootid . "[\\\"']\" " . file . " | awk -F: '{print $1}'"
-        let line = systemlist(line_cmd)[0]
-        execute 'tabnew +' . line file
+        " open the file in a new tab and point cursor on the correct line
+        execute 'tabnew ' .file
+        call search('id=[''"]' . rootid . '[''"]','w')
       else
         echoerr rootid . ' not found in any file.'
       endif
