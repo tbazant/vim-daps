@@ -94,6 +94,15 @@ endif
 if !exists(":DapsImportXmlIds")
   command -nargs=0 DapsImportXmlIds :call s:DapsImportXmlIds()
 endif
+
+" shift DocBook sections' level up/down the tree
+if !exists(":DapsShiftSectUp")
+  command -nargs=0 -range DapsShiftSectUp <line1>,<line2>s/sect\(\d\)\(.*\)>/\="sect" . (submatch(1) - 1) . submatch(2) . ">"/g
+endif
+if !exists(":DapsShiftSectDown")
+  command -nargs=0 -range DapsShiftSectDown <line1>,<line2>s/sect\(\d\)\(.*\)>/\="sect" . (submatch(1) + 1) . submatch(2) . ">"/g
+endif
+
 " - - - - - - - - - - - -  e n d   c o m m a n d   d e f i n i t i o n s   - - - - - - - - - - - "
 
 " - - - - - - - - - - - - -   f u n c t i o n s   - - - - - - - - - - - - "

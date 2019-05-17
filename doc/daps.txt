@@ -61,9 +61,14 @@ Commands:
 :DapsSetBuilddir <build_dir>
   Set the target directory for the --builddir option. Each buffer can have
   its own build_dir.
+
 :DapsImportXmlIds
   Imports XML IDs from the current book/bookset based on a provided DC file.
   You can then auto complete them inside the '<xref linkend=""/>' tag.
+
+:DapsShiftSectUp :DapsShiftSectDown
+  Shifts the visually selected DocBook XML sections' structure up or down
+  one level. Useful for refactoring documents.
 
                                                            *daps-settings*
 g:daps_dcfile_autostart = 1 or 0
