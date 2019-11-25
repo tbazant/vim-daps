@@ -114,3 +114,7 @@ g:daps_builddir = <directory>
 g:daps_auto_import_xmlids = 0 or 1
   Whether or not import all the XML IDs related for the current DC file
   to XML omnicompletion after a DC file is specified. Default is 1.
+
+g:daps_dapsroot = <directory>
+  Use daps from a git checkout directory instead of the default RPM installation.
+  This option is useful if you want to try the development version of daps.

@@ -17,9 +17,6 @@ let g:loaded_daps = 1
 " remember the script's directory
 let s:plugindir = resolve(expand('<sfile>:p:h:h'))
 
-" remember daps installation base dir
-let s:dapsdir = system('which daps')[:-11]
-
 " fill the  DB schema resolving hash
 let g:daps_db_schema = {
       \'https://github.com/openSUSE/geekodoc/raw/master/geekodoc/rng/geekodoc5-flat.rng': 'geekodoc5',
@@ -122,7 +119,7 @@ endfunction
 
 " list all <xref>s' IDs from the current buffer
 function s:ListXrefTargets(A,L,P)
-  "let cmd = 'xsltproc --xinclude /usr/share/daps/daps-xslt/common/get-all-xmlids.xsl xml/admin_gui_oa.xml | sort -u'
+  "let cmd = 'xsltproc --xinclude ' . g:daps_dapsroot . '/daps-xslt/common/get-all-xmlids.xsl xml/admin_gui_oa.xml | sort -u'
   let cmd = 'xsltproc ' . s:plugindir . '/tools/get-all-xrefsids.xsl ' . expand('%') . ' | sort -u'
   return system(cmd)
 endfunction
@@ -132,7 +129,7 @@ function s:DapsImportXmlIds()
   if !empty(s:IsDCfileSet())
     " grep MAIN file out of the DC-file
     let main_file = matchstr(system('grep "^\s*MAIN=" ' . b:dc_file), '"\zs[^"]\+\ze"')
-    let xsltproc_cmd = 'xsltproc --xinclude ' . s:dapsdir . '/share/daps/daps-xslt/common/get-all-xmlids.xsl xml/' . main_file
+    let xsltproc_cmd = 'xsltproc --xinclude ' . g:daps_dapsroot . '/daps-xslt/common/get-all-xmlids.xsl xml/' . main_file
     let g:xmldata_geekodoc5.xref[1].linkend = sort(systemlist(xsltproc_cmd))
   endif
 endfunction
@@ -185,7 +182,7 @@ function s:DapsOpenTarget(...)
   endif
   if !empty(rootid)
     if !empty(s:IsDCfileSet())
-      let file_cmd = 'daps -d ' . b:dc_file . ' list-file --rootid=' . rootid . ' 2> /dev/null'
+      let file_cmd = g:daps_dapscmd . ' -d ' . b:dc_file . ' list-file --rootid=' . rootid . ' 2> /dev/null'
       let file = systemlist(file_cmd)[0]
       if filereadable(file)
         " open the file in a new tab and point cursor on the correct line
@@ -232,7 +229,7 @@ function s:DapsValidate()
     if g:daps_auto_validate_file == 1 && s:DapsValidateFile() == 1
       return 1
     endif
-    let result = system('daps -d ' . b:dc_file . ' validate' . ' 2> /dev/null')
+    let result = system(g:daps_dapscmd . ' -d ' . b:dc_file . ' validate' . ' 2> /dev/null')
     if v:shell_error == 0
       echom 'All files are valid.'
       return 0
@@ -246,7 +243,7 @@ endfunction
 function s:DapsStylecheck()
   if !empty(s:IsDCfileSet())
     " find out the location of the style result XML file
-    let style_xml = system('daps -d ' . b:dc_file . ' stylecheck --file ' . expand('%') . ' 2> /dev/null')
+    let style_xml = system(g:daps_dapscmd . ' -d ' . b:dc_file . ' stylecheck --file ' . expand('%') . ' 2> /dev/null')
     let style_result = systemlist('xsltproc ' . s:plugindir . '/tools/vim_stylecheck.xsl ' . style_xml)
     if !empty(style_result)
       " define signs
@@ -355,7 +352,7 @@ function s:DapsBuild(target)
         let l:rootid = matchstr(join(getline(1,'$')), '\c xml:id=\([''"]\)\zs.\{-}\ze\1')
       endif
       " assemble daps cmdline
-      let l:dapscmd = 'daps -d ' . b:dc_file . ' --builddir=' . b:builddir . ' ' . a:target . ' --rootid=' . l:rootid . ' 2> /dev/null'
+      let l:dapscmd = g:daps_dapscmd . ' -d ' . b:dc_file . ' --builddir=' . b:builddir . ' ' . a:target . ' --rootid=' . l:rootid . ' 2> /dev/null'
       let l:target_dir = systemlist(l:dapscmd)[0]
       if a:target == 'html'
         let l:target_file = join([l:target_dir, 'index.html'], '')
@@ -402,7 +399,8 @@ function s:DapsImportEntites(...)
       return
     endif
     " no arg given, try getentityname.py
-    let ent_files = split(system('/usr/share/daps/libexec/getentityname.py ' . expand('%:p'), ' '))
+    let getentityname = g:daps_dapsroot . '/libexec/getentityname.py'
+    let ent_files = split(trim(system(getentityname . ' ' . expand('%:p'))), ' ')
     if len(ent_files) == 0
       " no ent files provided or found
       echoerr "No entity file(s) could be extracted, specify them on the command line"
@@ -430,7 +428,7 @@ function s:DapsImportEntites(...)
         call add(list, split[1])
       endif
     endfor
-    " assig docbk_entity vriable with new content
+    " assing docbk_entity vriable with new content
     let g:xmldata_{b:doctype}['vimxmlentities'] += list
   endfor
   let sorted = sort(copy(g:xmldata_{b:doctype}['vimxmlentities']))
@@ -538,6 +536,16 @@ call s:DapsSetBuilddir(g:daps_builddir)
 " check if 'g:daps_auto_import_xmlids' exists and set default value
 if !exists("g:daps_auto_import_xmlids")
   let g:daps_auto_import_xmlids = 1
+endif
+
+" remember daps installation base dir
+let s:dapsdir = system('which daps')[:-11]
+" check if 'g:daps_dapsroot' is set and guess if not
+if !exists("g:daps_dapsroot")
+  let g:daps_dapsroot = '/usr/share/daps'
+  let g:daps_dapscmd = '/usr/bin/daps'
+else
+  let g:daps_dapscmd = g:daps_dapsroot . '/bin/daps --dapsroot=' . g:daps_dapsroot
 endif
 
 " - - - - - - - - - - - - - e n d   o p t i o n s   f o r   ~/.vimrc - - - - - - - - - - - - "
