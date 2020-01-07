@@ -101,7 +101,6 @@ if !exists(":DapsShiftSectDown")
 endif
 
 " - - - - - - - - - - - -  e n d   c o m m a n d   d e f i n i t i o n s   - - - - - - - - - - - "
-
 " - - - - - - - - - - - - -   f u n c t i o n s   - - - - - - - - - - - - "
 
 " lists all DC files in the current directory
@@ -400,7 +399,8 @@ function s:DapsImportEntites(...)
     endif
     " no arg given, try getentityname.py
     let getentityname = g:daps_dapsroot . '/libexec/getentityname.py'
-    let ent_files = split(trim(system(getentityname . ' ' . expand('%:p'))), ' ')
+    let ent_str = substitute(system(getentityname . ' ' . expand('%:p')), '\n\+$', '', '')
+    let ent_files = split(ent_str, ' ')
     if len(ent_files) == 0
       " no ent files provided or found
       echoerr "No entity file(s) could be extracted, specify them on the command line"
