@@ -25,7 +25,12 @@ let g:daps_db_schema = {
       \'http://www.oasis-open.org/docbook/xml/5.0/rng/docbook.rnc': 'docbook50',
       \}
 
-" - - - - - - - - - - - - - - e n d    i n i t i a l   s e t u p - - - - - - - - - - "
+" - - - - - - - - - - - - - - c o m m o n   f u n c t i o n s - - - - - - - - - - "
+function s:dbg(msg)
+  if g:daps_debug == 1
+    echo "\nDEBUG: " . a:msg
+  endif
+endfunction
 " - - - - - - - - - - - - -  c o m m a n d   d e f i n i t i o n s   - - - - - - - - - - - - "
 " dummy command and function for testing purposes
 if !exists(":DapsDummy")
@@ -292,9 +297,16 @@ function s:DapsValidateFile()
       break
     endif
   endfor
+  call s:dbg('l:schema_uri -> ' . l:schema_uri)
   if exists('l:schema_uri')
     " get the schema file
     let l:schema_file = systemlist('xmlcatalog /etc/xml/catalog ' . l:schema_uri)[0]
+    " if the result starts with 'No entry', then schema is missing in catalogue
+    if strpart(l:schema_file, 0, 8) == 'No entry'
+      echoe 'Schema uri ' . l:schema_uri . ' is missing in XML catalog'
+      return 1
+    endif
+    call s:dbg('l:schema_file -> ' . l:schema_file)
     " run jing to check the current file's structure
     let l:jing_cmd = 'jing -i ' . l:schema_file . ' ' . expand('%')
     let l:jing_result = systemlist(l:jing_cmd)
