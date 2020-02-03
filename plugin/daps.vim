@@ -27,7 +27,7 @@ let g:daps_db_schema = {
 
 " - - - - - - - - - - - - - - c o m m o n   f u n c t i o n s - - - - - - - - - - "
 function s:dbg(msg)
-  if g:daps_debug == 1
+  if b:daps_debug == 1
     echo "\nDEBUG: " . a:msg
   endif
 endfunction
@@ -91,6 +91,10 @@ endif
 if !exists(":DapsSetBuilddir")
   command -nargs=1 -complete=file DapsSetBuilddir :call s:DapsSetBuilddir(<f-args>)
 endif
+" --styleroot
+if !exists(":DapsSetStyleroot")
+  command -nargs=1 -complete=file DapsSetStyleroot :call s:DapsSetStyleroot(<f-args>)
+endif
 
 " import all XML IDs given a DC-file
 if !exists(":DapsImportXmlIds")
@@ -117,7 +121,9 @@ endfunction
 function s:ListXMLdictionaries(A,L,P)
   " make sure the dict list is unique
   let dict_list = filter(values(g:daps_db_schema),'index(values(g:daps_db_schema), v:val, v:key+1)==-1')
+  call s:dbg('dict_list -> ' . dic_list)
   let result = map(copy(dict_list), 'fnamemodify(v:val, ":t:r")')
+  call s:dbg('result -> ' . result)
   return join(result, "\n")
 endfunction
 
@@ -133,8 +139,10 @@ function s:DapsImportXmlIds()
   if !empty(s:IsDCfileSet())
     " grep MAIN file out of the DC-file
     let main_file = matchstr(system('grep "^\s*MAIN=" ' . b:dc_file), '"\zs[^"]\+\ze"')
+    call s:dbg('main file -> ' . main_file)
     let xsltproc_cmd = 'xsltproc --xinclude ' . g:daps_dapsroot . '/daps-xslt/common/get-all-xmlids.xsl xml/' . main_file
-    let g:xmldata_geekodoc5.xref[1].linkend = sort(systemlist(xsltproc_cmd))
+    call s:dbg('xsltproc_cmd -> ' . xsltproc_cmd)
+    let g:xmldata_{b:doctype}.xref[1].linkend = sort(systemlist(xsltproc_cmd))
   endif
 endfunction
 
@@ -229,11 +237,14 @@ endfunction
 " validates the document based on the DC file with tab completion
 function s:DapsValidate()
   if !empty(s:IsDCfileSet())
-    " check whether to run DaspValidateFile first
-    if g:daps_auto_validate_file == 1 && s:DapsValidateFile() == 1
+    " check whether to run DaspValidateFile first and return 1 on error
+    if b:daps_auto_validate_file == 1 && s:DapsValidateFile() == 1
       return 1
     endif
-    let result = system(g:daps_dapscmd . ' -d ' . b:dc_file . ' validate' . ' 2> /dev/null')
+    call s:dbg('g:daps_dapscmd -> ' . g:daps_dapscmd)
+    let validate_cmd = g:daps_dapscmd . ' -d ' . b:dc_file . ' --styleroot=' . b:styleroot . ' validate' . ' 2> /dev/null'
+    call s:dbg('validate_cmd -> ' . validate_cmd)
+    let result = system(validate_cmd)
     if v:shell_error == 0
       echom 'All files are valid.'
       return 0
@@ -291,6 +302,7 @@ endfunction
 " validates the current file only
 function s:DapsValidateFile()
   " get the schema URI
+  call s:dbg('g:daps_db_schema size -> ' . len(g:daps_db_schema))
   for [key, value] in items(g:daps_db_schema)
     if value == b:doctype
       let l:schema_uri = key
@@ -309,7 +321,9 @@ function s:DapsValidateFile()
     call s:dbg('l:schema_file -> ' . l:schema_file)
     " run jing to check the current file's structure
     let l:jing_cmd = 'jing -i ' . l:schema_file . ' ' . expand('%')
+    call s:dbg('l:jing_cmd -> ' . l:jing_cmd)
     let l:jing_result = systemlist(l:jing_cmd)
+    call s:dbg('l:jing_result size -> ' . len(l:jing_result))
     if !empty(l:jing_result)
       " define signs
       sign define error text=E
@@ -362,8 +376,10 @@ function s:DapsBuild(target)
       if empty(l:rootid)
         let l:rootid = matchstr(join(getline(1,'$')), '\c xml:id=\([''"]\)\zs.\{-}\ze\1')
       endif
+      call s:dbg('l:rootid -> ' . l:rootid)
       " assemble daps cmdline
-      let l:dapscmd = g:daps_dapscmd . ' -d ' . b:dc_file . ' --builddir=' . b:builddir . ' ' . a:target . ' --rootid=' . l:rootid . ' 2> /dev/null'
+      let l:dapscmd = g:daps_dapscmd . ' -d ' . b:dc_file . ' --styleroot=' . b:styleroot . ' --builddir=' . b:builddir . ' ' . a:target . ' --rootid=' . l:rootid . ' 2> /dev/null'
+      call s:dbg('l:dapscmd -> ' . l:dapscmd)
       let l:target_dir = systemlist(l:dapscmd)[0]
       if a:target == 'html'
         let l:target_file = join([l:target_dir, 'index.html'], '')
@@ -376,7 +392,9 @@ function s:DapsBuild(target)
       else
         silent execute '!xdg-open ' . l:target_file . ' > /dev/null 2>&1'
       endif
-      execute 'redraw!'
+      if b:daps_debug == 0
+        execute 'redraw!'
+      endif
     endif
   endif
 endfunction
@@ -411,6 +429,7 @@ function s:DapsImportEntites(...)
     endif
     " no arg given, try getentityname.py
     let getentityname = g:daps_dapsroot . '/libexec/getentityname.py'
+    call s:dbg('getentityname -> ' . getentityname)
     let ent_str = substitute(system(getentityname . ' ' . expand('%:p')), '\n\+$', '', '')
     let ent_files = split(ent_str, ' ')
     if len(ent_files) == 0
@@ -428,6 +447,7 @@ function s:DapsImportEntites(...)
   for ent_file in ent_files
     " check if file exists
     let ent_file = expand(ent_file)
+    call s:dbg('ent_file -> ' . ent_file)
     if !filereadable(ent_file)
       echoerr 'File ' . ent_file . ' is not readable'
       continue
@@ -441,6 +461,7 @@ function s:DapsImportEntites(...)
       endif
     endfor
     " assing docbk_entity vriable with new content
+    call s:dbg('b:doctype -> ' . b:doctype)
     let g:xmldata_{b:doctype}['vimxmlentities'] += list
   endfor
   let sorted = sort(copy(g:xmldata_{b:doctype}['vimxmlentities']))
@@ -474,12 +495,28 @@ function s:DapsSetBuilddir(builddir)
   endif
 endfunction
 
+" set --styleroot for customstylesheets (overriding DC-* file setting)
+function s:DapsSetStyleroot(styleroot)
+  " check if styleroot is writable
+  if isdirectory(a:styleroot)
+    let b:styleroot = a:styleroot
+  else
+    echoerr a:styleroot . ' is not a directory'
+  endif
+endfunction
+
 
 " - - - - - - - - - - - - -  e n d  f u n c t i o n s   - - - - - - - - - - - - "
 
 
 " - - - - - - - - - - - - - o p t i o n s   f o r   ~/.vimrc - - - - - - - - - - - - "
 
+" check if g:daps_debug is set
+if exists("g:daps_debug")
+  let b:daps_debug = g:daps_debug
+else
+  let b:daps_debug = 0
+endif
 
 " decide whether ask for DC file on startup and do so if yes
 if exists("g:daps_dcfile_autostart")
@@ -544,6 +581,10 @@ if !exists("g:daps_builddir")
   let g:daps_builddir = getcwd() . '/build/'
 endif
 call s:DapsSetBuilddir(g:daps_builddir)
+if !exists("g:daps_styleroot")
+  let g:daps_styleroot = '/usr/share/xml/docbook/stylesheet/docbook-xsl-ns/'
+endif
+call s:DapsSetStyleroot(g:daps_styleroot)
 
 " check if 'g:daps_auto_import_xmlids' exists and set default value
 if !exists("g:daps_auto_import_xmlids")
