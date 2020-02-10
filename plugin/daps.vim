@@ -14,29 +14,9 @@ if exists("g:loaded_daps")
 endif
 let g:loaded_daps = 1
 
-" remember the script's directory
-let s:plugindir = resolve(expand('<sfile>:p:h:h'))
+" read g:daps_* variables from .vimrc and set defaults
+autocmd FileType docbk :call s:Init()
 
-" fill the  DB schema resolving hash
-let g:daps_db_schema = {
-      \'https://github.com/openSUSE/geekodoc/raw/master/geekodoc/rng/geekodoc5-flat.rng': 'geekodoc5',
-      \'https://github.com/openSUSE/geekodoc/raw/master/geekodoc/rng/geekodoc5-flat.rnc': 'geekodoc5',
-      \'http://www.oasis-open.org/docbook/xml/5.0/rng/docbook.rng': 'docbook50',
-      \'http://www.oasis-open.org/docbook/xml/5.0/rng/docbook.rnc': 'docbook50',
-      \}
-
-" - - - - - - - - - - - - - - c o m m o n   f u n c t i o n s - - - - - - - - - - "
-function s:dbg(msg)
-  " check if g:daps_debug is set
-  if exists("g:daps_debug")
-    let b:daps_debug = g:daps_debug
-  else
-    let b:daps_debug = 0
-  endif
-  if b:daps_debug == 1
-    echo "\nDEBUG: " . a:msg
-  endif
-endfunction
 " - - - - - - - - - - - - -  c o m m a n d   d e f i n i t i o n s   - - - - - - - - - - - - "
 " dummy command and function for testing purposes
 if !exists(":DapsDummy")
@@ -115,8 +95,117 @@ if !exists(":DapsShiftSectDown")
   command -nargs=0 -range DapsShiftSectDown <line1>,<line2>s/sect\(\d\)\(.*\)>/\="sect" . (submatch(1) + 1) . submatch(2) . ">"/g
 endif
 
-" - - - - - - - - - - - -  e n d   c o m m a n d   d e f i n i t i o n s   - - - - - - - - - - - "
 " - - - - - - - - - - - - -   f u n c t i o n s   - - - - - - - - - - - - "
+
+" read g:daps_* variables from ~/.vimrc and set buffer-wide defaults
+function s:Init()
+  " remember the script's directory
+  let s:plugindir = resolve(expand('<sfile>:p:h:h'))
+
+  " fill the  DB schema resolving hash
+  let g:daps_db_schema = {
+        \'https://github.com/openSUSE/geekodoc/raw/master/geekodoc/rng/geekodoc5-flat.rng': 'geekodoc5',
+        \'https://github.com/openSUSE/geekodoc/raw/master/geekodoc/rng/geekodoc5-flat.rnc': 'geekodoc5',
+        \'http://www.oasis-open.org/docbook/xml/5.0/rng/docbook.rng': 'docbook50',
+        \'http://www.oasis-open.org/docbook/xml/5.0/rng/docbook.rnc': 'docbook50',
+        \}
+
+  " check if g:daps_debug is set
+  if !exists("b:daps_debug")
+    if exists("g:daps_debug")
+      let b:daps_debug = g:daps_debug
+    else
+      let b:daps_debug = 0
+    endif
+  endif
+
+  " determine daps root and daps cmd
+  if !exists("b:daps_dapsroot")
+    if !exists("g:daps_dapsroot")
+      let b:daps_dapsroot = '/usr/share/daps'
+      let b:daps_dapscmd = '/usr/bin/daps'
+    else
+      let b:daps_dapsroot = g:daps_dapsroot
+      let b:daps_dapscmd = b:daps_dapsroot . '/bin/daps --dapsroot=' . b:daps_dapsroot
+    endif
+  endif
+
+  " decide whether ask for DC file on startup and do so if yes
+  if exists("g:daps_dcfile_autostart")
+    let b:dcfile_autostart = g:daps_dcfile_autostart
+  else
+    let b:dcfile_autostart = 0
+  endif
+  if b:dcfile_autostart == 1
+    autocmd BufReadPost,FileType docbk call s:AskForDCFile()
+  endif
+
+  " set default pattern for DC file completion
+  if exists("g:daps_dcfile_glob_pattern")
+    let g:dcfile_glob_pattern = g:daps_dcfile_glob_pattern
+  else
+    let g:dcfile_glob_pattern = ""
+  endif
+
+  " set default pattern for entity file completion
+  if exists("g:daps_entfile_glob_pattern")
+    let g:entfile_glob_pattern = g:daps_entfile_glob_pattern
+  else
+    let g:entfile_glob_pattern = "*"
+  endif
+
+  " decide whether run :DapsValidateFile before :DapsValidate
+  if empty("g:daps_auto_validate_file")
+    let g:daps_auto_validate_filei = 0
+  endif
+
+  " decide whether run entity, set doctype, and import on new file open
+  if exists("g:daps_entity_import_autostart")
+    let b:entity_import_autostart = g:daps_entity_import_autostart
+  else
+    let b:entity_import_autostart = 0
+  endif
+  if b:entity_import_autostart == 1
+    autocmd BufReadPost,FileType docbk call s:DapsSetDoctype()
+  endif
+
+  " decide whether to read the xml/schemas.xml file for DocType
+  if exists("g:daps_xmlschemas_autostart")
+    if g:daps_xmlschemas_autostart == 1
+      let x_schema = s:DapsLookupSchemasXML()
+      if !empty(x_schema)
+        " find the right doctype accross URI
+        for [key, value] in items(g:daps_db_schema)
+          let schema_file = systemlist('xmlcatalog /etc/xml/catalog ' . key)[0]
+          if schema_file == x_schema
+            call s:DapsSetDoctype(value)
+            break
+          endif
+        endfor
+      endif
+    endif
+  endif
+
+  " check if 'g:daps_builddir' exists and trigger setting it in current buffer
+  if !exists("g:daps_builddir")
+    let g:daps_builddir = getcwd() . '/build/'
+  endif
+  call s:DapsSetBuilddir(g:daps_builddir)
+  if exists("g:daps_styleroot")
+    call s:DapsSetStyleroot(g:daps_styleroot)
+  endif
+
+  " check if 'g:daps_auto_import_xmlids' exists and set default value
+  if !exists("g:daps_auto_import_xmlids")
+    let g:daps_auto_import_xmlids = 1
+  endif
+endfunction
+
+function s:dbg(msg)
+  if b:daps_debug == 1
+    echo "\nDEBUG: " . a:msg
+  endif
+endfunction
 
 " lists all DC files in the current directory
 function s:ListDCfiles(A,L,P)
@@ -146,7 +235,7 @@ function s:DapsImportXmlIds()
     " grep MAIN file out of the DC-file
     let main_file = matchstr(system('grep "^\s*MAIN=" ' . b:dc_file), '"\zs[^"]\+\ze"')
     call s:dbg('main file -> ' . main_file)
-    let xsltproc_cmd = 'xsltproc --xinclude ' . g:daps_dapsroot . '/daps-xslt/common/get-all-xmlids.xsl xml/' . main_file
+    let xsltproc_cmd = 'xsltproc --xinclude ' . b:daps_dapsroot . '/daps-xslt/common/get-all-xmlids.xsl xml/' . main_file
     call s:dbg('xsltproc_cmd -> ' . xsltproc_cmd)
     let g:xmldata_{b:doctype}.xref[1].linkend = sort(systemlist(xsltproc_cmd))
   endif
@@ -200,7 +289,7 @@ function s:DapsOpenTarget(...)
   endif
   if !empty(rootid)
     if !empty(s:IsDCfileSet())
-      let file_cmd = g:daps_dapscmd . ' -d ' . b:dc_file . ' list-file --rootid=' . rootid . ' 2> /dev/null'
+      let file_cmd = b:daps_dapscmd . ' -d ' . b:dc_file . ' list-file --rootid=' . rootid . ' 2> /dev/null'
       let file = systemlist(file_cmd)[0]
       if filereadable(file)
         " open the file in a new tab and point cursor on the correct line
@@ -248,11 +337,11 @@ endfunction
 function s:DapsValidate()
   if !empty(s:IsDCfileSet())
     " check whether to run DaspValidateFile first and return 1 on error
-    if b:daps_auto_validate_file == 1 && s:DapsValidateFile() == 1
+    if g:daps_auto_validate_file == 1 && s:DapsValidateFile() == 1
       return 1
     endif
-    call s:dbg('g:daps_dapscmd -> ' . g:daps_dapscmd)
-    let validate_cmd = g:daps_dapscmd . ' -d ' . b:dc_file
+    call s:dbg('b:daps_dapscmd -> ' . b:daps_dapscmd)
+    let validate_cmd = b:daps_dapscmd . ' -d ' . b:dc_file
     if exists('b:styleroot')
       let validate_cmd .= ' --styleroot=' . b:styleroot
     endif
@@ -272,7 +361,7 @@ endfunction
 function s:DapsStylecheck()
   if !empty(s:IsDCfileSet())
     " find out the location of the style result XML file
-    let style_xml = system(g:daps_dapscmd . ' -d ' . b:dc_file . ' stylecheck --file ' . expand('%') . ' 2> /dev/null')
+    let style_xml = system(b:daps_dapscmd . ' -d ' . b:dc_file . ' stylecheck --file ' . expand('%') . ' 2> /dev/null')
     let style_result = systemlist('xsltproc ' . s:plugindir . '/tools/vim_stylecheck.xsl ' . style_xml)
     if !empty(style_result)
       " define signs
@@ -392,7 +481,7 @@ function s:DapsBuild(target)
       endif
       call s:dbg('l:rootid -> ' . l:rootid)
       " assemble daps cmdline
-      let l:dapscmd = g:daps_dapscmd . ' -d ' . b:dc_file
+      let l:dapscmd = b:daps_dapscmd . ' -d ' . b:dc_file
       if exists('b:styleroot')
         let dapscmd .= ' --styleroot=' . b:styleroot
       endif
@@ -447,7 +536,7 @@ function s:DapsImportEntites(...)
       return
     endif
     " no arg given, try daps' getentityname.py
-    let getentityname = g:daps_dapsroot . '/libexec/getentityname.py'
+    let getentityname = b:daps_dapsroot . '/libexec/getentityname.py'
     call s:dbg('getentityname -> ' . getentityname)
     let ent_str = substitute(system(getentityname . ' ' . expand('%:p')), '\n\+$', '', '')
     call s:dbg('ent_str -> ' . ent_str)
@@ -526,98 +615,7 @@ function s:DapsSetStyleroot(styleroot)
   endif
 endfunction
 
-
 " - - - - - - - - - - - - -  e n d  f u n c t i o n s   - - - - - - - - - - - - "
-
-
-" - - - - - - - - - - - - - o p t i o n s   f o r   ~/.vimrc - - - - - - - - - - - - "
-
-
-" determine daps root and daps cmd
-if !exists("g:daps_dapsroot")
-  let g:daps_dapsroot = '/usr/share/daps'
-  let g:daps_dapscmd = '/usr/bin/daps'
-else
-  let g:daps_dapscmd = g:daps_dapsroot . '/bin/daps --dapsroot=' . g:daps_dapsroot
-endif
-
-" decide whether ask for DC file on startup and do so if yes
-if exists("g:daps_dcfile_autostart")
-  let b:dcfile_autostart = g:daps_dcfile_autostart
-else
-  let b:dcfile_autostart = 0
-endif
-if b:dcfile_autostart == 1
-  autocmd BufReadPost,FileType docbk call s:AskForDCFile()
-endif
-
-" set default pattern for DC file completion
-if exists("g:daps_dcfile_glob_pattern")
-  let g:dcfile_glob_pattern = g:daps_dcfile_glob_pattern
-else
-  let g:dcfile_glob_pattern = ""
-endif
-
-" set default pattern for entity file completion
-if exists("g:daps_entfile_glob_pattern")
-  let g:entfile_glob_pattern = g:daps_entfile_glob_pattern
-else
-  let g:entfile_glob_pattern = "*"
-endif
-
-" decide whether run :DapsValidateFile before :DapsValidate
-if exists("g:daps_auto_validate_file")
-  let b:daps_auto_validate_file = g:daps_auto_validate_file
-else
-  let b:daps_auto_validate_file = 0
-endif
-
-" decide whether run entity, set doctype, and import on new file open
-if exists("g:daps_entity_import_autostart")
-  let b:entity_import_autostart = g:daps_entity_import_autostart
-else
-  let b:entity_import_autostart = 0
-endif
-if b:entity_import_autostart == 1
-  autocmd BufReadPost,FileType docbk call s:DapsSetDoctype()
-endif
-
-" decide whether to read the xml/schemas.xml file for DocType
-if exists("g:daps_xmlschemas_autostart")
-  if g:daps_xmlschemas_autostart == 1
-    let x_schema = s:DapsLookupSchemasXML()
-    if !empty(x_schema)
-      " find the right doctype accross URI
-      for [key, value] in items(g:daps_db_schema)
-        let schema_file = systemlist('xmlcatalog /etc/xml/catalog ' . key)[0]
-        if schema_file == x_schema
-          call s:DapsSetDoctype(value)
-          break
-        endif
-      endfor
-    endif
-  endif
-endif
-
-" check if 'g:daps_builddir' exists and trigger setting it in current buffer
-if !exists("g:daps_builddir")
-  let g:daps_builddir = getcwd() . '/build/'
-endif
-call s:DapsSetBuilddir(g:daps_builddir)
-if exists("g:daps_styleroot")
-  call s:DapsSetStyleroot(g:daps_styleroot)
-endif
-
-" check if 'g:daps_auto_import_xmlids' exists and set default value
-if !exists("g:daps_auto_import_xmlids")
-  let g:daps_auto_import_xmlids = 1
-endif
-
-" remember daps installation base dir
-let s:dapsdir = system('which daps')[:-11]
-" check if 'g:daps_dapsroot' is set and guess if not
-
-" - - - - - - - - - - - - - e n d   o p t i o n s   f o r   ~/.vimrc - - - - - - - - - - - - "
 
 " restore the value of cpoptions
 let &cpo = s:save_cpo
