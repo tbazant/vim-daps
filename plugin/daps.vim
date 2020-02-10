@@ -242,7 +242,11 @@ function s:DapsValidate()
       return 1
     endif
     call s:dbg('g:daps_dapscmd -> ' . g:daps_dapscmd)
-    let validate_cmd = g:daps_dapscmd . ' -d ' . b:dc_file . ' --styleroot=' . b:styleroot . ' validate' . ' 2> /dev/null'
+    let validate_cmd = g:daps_dapscmd . ' -d ' . b:dc_file
+    if exists('b:styleroot')
+      let validate_cmd .= ' --styleroot=' . b:styleroot
+    endif
+    let validate_cmd .= ' validate' . ' 2> /dev/null'
     call s:dbg('validate_cmd -> ' . validate_cmd)
     let result = system(validate_cmd)
     if v:shell_error == 0
@@ -378,7 +382,12 @@ function s:DapsBuild(target)
       endif
       call s:dbg('l:rootid -> ' . l:rootid)
       " assemble daps cmdline
-      let l:dapscmd = g:daps_dapscmd . ' -d ' . b:dc_file . ' --styleroot=' . b:styleroot . ' --builddir=' . b:builddir . ' ' . a:target . ' --rootid=' . l:rootid . ' 2> /dev/null'
+      let l:dapscmd = g:daps_dapscmd . ' -d ' . b:dc_file
+      if exists('b:styleroot')
+        let dapscmd .= ' --styleroot=' . b:styleroot
+      endif
+      let dapscmd .= ' --builddir=' . b:builddir . ' ' . a:target . ' --rootid=' . l:rootid . ' 2> /dev/null'
+
       call s:dbg('l:dapscmd -> ' . l:dapscmd)
       let l:target_dir = systemlist(l:dapscmd)[0]
       if a:target == 'html'
@@ -518,6 +527,14 @@ else
   let b:daps_debug = 0
 endif
 
+" determine daps root and daps cmd
+if !exists("g:daps_dapsroot")
+  let g:daps_dapsroot = '/usr/share/daps'
+  let g:daps_dapscmd = '/usr/bin/daps'
+else
+  let g:daps_dapscmd = g:daps_dapsroot . '/bin/daps --dapsroot=' . g:daps_dapsroot
+endif
+
 " decide whether ask for DC file on startup and do so if yes
 if exists("g:daps_dcfile_autostart")
   let b:dcfile_autostart = g:daps_dcfile_autostart
@@ -581,10 +598,9 @@ if !exists("g:daps_builddir")
   let g:daps_builddir = getcwd() . '/build/'
 endif
 call s:DapsSetBuilddir(g:daps_builddir)
-if !exists("g:daps_styleroot")
-  let g:daps_styleroot = '/usr/share/xml/docbook/stylesheet/docbook-xsl-ns/'
+if exists("g:daps_styleroot")
+  call s:DapsSetStyleroot(g:daps_styleroot)
 endif
-call s:DapsSetStyleroot(g:daps_styleroot)
 
 " check if 'g:daps_auto_import_xmlids' exists and set default value
 if !exists("g:daps_auto_import_xmlids")
@@ -594,12 +610,6 @@ endif
 " remember daps installation base dir
 let s:dapsdir = system('which daps')[:-11]
 " check if 'g:daps_dapsroot' is set and guess if not
-if !exists("g:daps_dapsroot")
-  let g:daps_dapsroot = '/usr/share/daps'
-  let g:daps_dapscmd = '/usr/bin/daps'
-else
-  let g:daps_dapscmd = g:daps_dapsroot . '/bin/daps --dapsroot=' . g:daps_dapsroot
-endif
 
 " - - - - - - - - - - - - - e n d   o p t i o n s   f o r   ~/.vimrc - - - - - - - - - - - - "
 
