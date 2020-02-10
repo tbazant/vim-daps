@@ -436,14 +436,15 @@ function s:DapsImportEntites(...)
     if expand('%:p') =~ '^fugitive'
       return
     endif
-    " no arg given, try getentityname.py
+    " no arg given, try daps' getentityname.py
     let getentityname = g:daps_dapsroot . '/libexec/getentityname.py'
     call s:dbg('getentityname -> ' . getentityname)
     let ent_str = substitute(system(getentityname . ' ' . expand('%:p')), '\n\+$', '', '')
+    call s:dbg('ent_str -> ' . ent_str)
     let ent_files = split(ent_str, ' ')
     if len(ent_files) == 0
       " no ent files provided or found
-      echoerr "No entity file(s) could be extracted, specify them on the command line"
+      call s:dbg('No entity file(s) could be extracted, specify them on the command line')
       return
     else
       " add 'xml/' before each ent filename
@@ -452,6 +453,7 @@ function s:DapsImportEntites(...)
   else
     let ent_files = a:000
   endif
+  call s:dbg('Num of ent_str -> ' . len(ent_files))
 
   for ent_file in ent_files
     " check if file exists
