@@ -27,6 +27,12 @@ let g:daps_db_schema = {
 
 " - - - - - - - - - - - - - - c o m m o n   f u n c t i o n s - - - - - - - - - - "
 function s:dbg(msg)
+  " check if g:daps_debug is set
+  if exists("g:daps_debug")
+    let b:daps_debug = g:daps_debug
+  else
+    let b:daps_debug = 0
+  endif
   if b:daps_debug == 1
     echo "\nDEBUG: " . a:msg
   endif
@@ -210,13 +216,17 @@ endfunction
 " set doctype for DB documents
 function s:DapsSetDoctype(...)
   if a:0 == 0
+    call s:dbg("No doctype specified on the cmdline, trying .vimrc")
     if exists("g:daps_doctype")
+      call s:dbg("'g:daps_doctype' is '" . g:daps_doctype . "', taking that")
       let b:doctype = g:daps_doctype
     else
       let b:doctype = "docbook50"
+      call s:dbg("No 'g:daps_doctype' is set, defaulting to '" . b:doctype . "'")
     endif
   else
     let b:doctype = a:1
+    call s:dbg("doctype '" . b:doctype . "' was specified on the cmdline, taking that")
   endif
   call xmlcomplete#CreateConnection(b:doctype)
   call s:DapsImportEntites()
@@ -522,12 +532,6 @@ endfunction
 
 " - - - - - - - - - - - - - o p t i o n s   f o r   ~/.vimrc - - - - - - - - - - - - "
 
-" check if g:daps_debug is set
-if exists("g:daps_debug")
-  let b:daps_debug = g:daps_debug
-else
-  let b:daps_debug = 0
-endif
 
 " determine daps root and daps cmd
 if !exists("g:daps_dapsroot")
