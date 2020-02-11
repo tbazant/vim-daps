@@ -116,22 +116,22 @@ function s:Init()
         \}
 
   " check if g:daps_debug is set
-  if !exists("b:daps_debug")
+  if !exists("b:debug")
     if exists("g:daps_debug")
-      let b:daps_debug = g:daps_debug
+      let b:debug = g:daps_debug
     else
-      let b:daps_debug = 0
+      let b:debug = 0
     endif
   endif
 
   " determine daps root and daps cmd
-  if !exists("b:daps_dapsroot")
+  if !exists("b:dapsroot")
     if !exists("g:daps_dapsroot")
-      let b:daps_dapsroot = '/usr/share/daps'
-      let b:daps_dapscmd = '/usr/bin/daps'
+      let b:dapsroot = '/usr/share/daps'
+      let b:dapscmd = '/usr/bin/daps'
     else
-      let b:daps_dapsroot = g:daps_dapsroot
-      let b:daps_dapscmd = b:daps_dapsroot . '/bin/daps --dapsroot=' . b:daps_dapsroot
+      let b:dapsroot = g:daps_dapsroot
+      let b:dapscmd = b:dapsroot . '/bin/daps --dapsroot=' . b:dapsroot
     endif
   endif
 
@@ -207,7 +207,7 @@ function s:Init()
 endfunction
 
 function s:dbg(msg)
-  if b:daps_debug == 1
+  if b:debug == 1
     echo "\nDEBUG: " . a:msg
   endif
 endfunction
@@ -240,7 +240,7 @@ function s:DapsImportXmlIds()
     " grep MAIN file out of the DC-file
     let main_file = matchstr(system('grep "^\s*MAIN=" ' . b:dc_file), '"\zs[^"]\+\ze"')
     call s:dbg('main file -> ' . main_file)
-    let xsltproc_cmd = 'xsltproc --xinclude ' . b:daps_dapsroot . '/daps-xslt/common/get-all-xmlids.xsl xml/' . main_file
+    let xsltproc_cmd = 'xsltproc --xinclude ' . b:dapsroot . '/daps-xslt/common/get-all-xmlids.xsl xml/' . main_file
     call s:dbg('xsltproc_cmd -> ' . xsltproc_cmd)
     let g:xmldata_{b:doctype}.xref[1].linkend = sort(systemlist(xsltproc_cmd))
   endif
@@ -294,7 +294,7 @@ function s:DapsOpenTarget(...)
   endif
   if !empty(rootid)
     if !empty(s:IsDCfileSet())
-      let file_cmd = b:daps_dapscmd . ' -d ' . b:dc_file . ' list-file --rootid=' . rootid . ' 2> /dev/null'
+      let file_cmd = b:dapscmd . ' -d ' . b:dc_file . ' list-file --rootid=' . rootid . ' 2> /dev/null'
       let file = systemlist(file_cmd)[0]
       if filereadable(file)
         " open the file in a new tab and point cursor on the correct line
@@ -310,7 +310,7 @@ endfunction
 " list all XML IDs
 function s:ListXmlIds(A,L,P)
   " get list of XML IDs in the current file
-  let xmlids = system('xsltproc ' . b:daps_dapsroot . '/daps-xslt/common/get-all-xmlids.xsl ' . expand('%'))
+  let xmlids = system('xsltproc ' . b:dapsroot . '/daps-xslt/common/get-all-xmlids.xsl ' . expand('%'))
   call s:dbg('Num of XML IDs -> ' . len(xmlids))
   return xmlids
 endfunction
@@ -333,7 +333,7 @@ function s:DapsOpenReferers(...)
 
   if !empty(s:IsDCfileSet())
     " get list of XML files for a given DC file
-    let cmd = b:daps_dapscmd . " -d " . b:dc_file . " list-srcfiles --xmlonly"
+    let cmd = b:dapscmd . " -d " . b:dc_file . " list-srcfiles --xmlonly"
     call s:dbg("ListXMLfiles cmd -> " . cmd)
     let files = join(systemlist(cmd), ' ')
     call s:dbg("Num of XML files -> " . len(split(files, '\s')))
@@ -401,8 +401,8 @@ function s:DapsValidate()
     if g:daps_auto_validate_file == 1 && s:DapsValidateFile() == 1
       return 1
     endif
-    call s:dbg('b:daps_dapscmd -> ' . b:daps_dapscmd)
-    let validate_cmd = b:daps_dapscmd . ' -d ' . b:dc_file
+    call s:dbg('b:dapscmd -> ' . b:dapscmd)
+    let validate_cmd = b:dapscmd . ' -d ' . b:dc_file
     if exists('b:styleroot')
       let validate_cmd .= ' --styleroot=' . b:styleroot
     endif
@@ -422,7 +422,7 @@ endfunction
 function s:DapsStylecheck()
   if !empty(s:IsDCfileSet())
     " find out the location of the style result XML file
-    let style_xml = system(b:daps_dapscmd . ' -d ' . b:dc_file . ' stylecheck --file ' . expand('%') . ' 2> /dev/null')
+    let style_xml = system(b:dapscmd . ' -d ' . b:dc_file . ' stylecheck --file ' . expand('%') . ' 2> /dev/null')
     let style_result = systemlist('xsltproc ' . s:plugindir . '/tools/vim_stylecheck.xsl ' . style_xml)
     if !empty(style_result)
       " define signs
@@ -542,7 +542,7 @@ function s:DapsBuild(target)
       endif
       call s:dbg('l:rootid -> ' . l:rootid)
       " assemble daps cmdline
-      let l:dapscmd = b:daps_dapscmd . ' -d ' . b:dc_file
+      let l:dapscmd = b:dapscmd . ' -d ' . b:dc_file
       if exists('b:styleroot')
         let dapscmd .= ' --styleroot=' . b:styleroot
       endif
@@ -561,7 +561,7 @@ function s:DapsBuild(target)
       else
         silent execute '!xdg-open ' . l:target_file . ' > /dev/null 2>&1'
       endif
-      if b:daps_debug == 0
+      if b:debug == 0
         execute 'redraw!'
       endif
     endif
@@ -597,7 +597,7 @@ function s:DapsImportEntites(...)
       return
     endif
     " no arg given, try daps' getentityname.py
-    let getentityname = b:daps_dapsroot . '/libexec/getentityname.py'
+    let getentityname = b:dapsroot . '/libexec/getentityname.py'
     call s:dbg('getentityname -> ' . getentityname)
     let ent_str = substitute(system(getentityname . ' ' . expand('%:p')), '\n\+$', '', '')
     call s:dbg('ent_str -> ' . ent_str)
