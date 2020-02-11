@@ -58,6 +58,12 @@ Commands:
   If both <xref> and <link> are on the current line, both the referenced
   file is opene in a new tab, and the URL in a browser.
 
+:DapsOpenReferers <xml_id>
+  Opens a quickfix window with list of all files and exact line numbers
+  that refer to the specified XML ID. If the cursor is currently on a line
+  containing xml:id="<xml_id>" and you do not specify the XML ID on the
+  command line, it is extracter from the current line instead.
+
 :DapsSetBuilddir <build_dir>
   Set the target directory for the --builddir option. Each buffer can have
   its own build_dir.

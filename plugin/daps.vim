@@ -73,6 +73,11 @@ if !exists(":DapsOpenTarget")
   command -nargs=? -complete=custom,s:ListXrefTargets DapsOpenTarget :call s:DapsOpenTarget(<f-args>)
 endif
 
+" opens files that refers to the provided XML:ID
+if !exists(":DapsOpenReferers")
+  command -nargs=? -complete=custom,s:ListXmlIds DapsOpenReferers :call s:DapsOpenReferers(<f-args>)
+endif
+
 " --builddir
 if !exists(":DapsSetBuilddir")
   command -nargs=1 -complete=file DapsSetBuilddir :call s:DapsSetBuilddir(<f-args>)
@@ -298,6 +303,62 @@ function s:DapsOpenTarget(...)
       else
         echoerr rootid . ' not found in any file.'
       endif
+    endif
+  endif
+endfunction
+
+" list all XML IDs
+function s:ListXmlIds(A,L,P)
+  " get list of XML IDs in the current file
+  let xmlids = system('xsltproc ' . b:daps_dapsroot . '/daps-xslt/common/get-all-xmlids.xsl ' . expand('%'))
+  call s:dbg('Num of XML IDs -> ' . len(xmlids))
+  return xmlids
+endfunction
+
+" find pages which refer to provided xml:id via <xref linkend>
+function s:DapsOpenReferers(...)
+  if a:0 > 0
+    " check if XML ID was provided via cmdline
+    call s:dbg("XML ID supplied on the command line -> " . a:1)
+    let xmlid = a:1
+  else
+    " check if cursor is on 'id=""' line and grep the XML ID from there
+    let xmlid = matchstr(getline("."), '\c xml:id=\([''"]\)\zs.\{-}\ze\1')
+    call s:dbg("XML ID read from the current line -> " . xmlid)
+    if empty(xmlid)
+      echoerr "No XML ID specified"
+      return 1
+    endif
+  endif
+
+  if !empty(s:IsDCfileSet())
+    " get list of XML files for a given DC file
+    let cmd = b:daps_dapscmd . " -d " . b:dc_file . " list-srcfiles --xmlonly"
+    call s:dbg("ListXMLfiles cmd -> " . cmd)
+    let files = join(systemlist(cmd), ' ')
+    call s:dbg("Num of XML files -> " . len(split(files, '\s')))
+    let cmd = "grep -in 'linkend=\"" . xmlid . "\"' " . files
+    call s:dbg("grepXMLids cmd -> " . cmd)
+    let result = systemlist(cmd)
+    call s:dbg("Num of occurences -> " . len(result))
+    " create a quickfixlist from grep results
+    if !empty(result)
+      let qflist = []
+      let id = 1
+      for line in result
+        let sl = split(line, ':')
+        call add(l:qflist, {
+              \ 'filename': sl[0],
+              \ 'lnum': sl[1],
+              \ 'text': sl[2],
+              \})
+        let id += 1
+      endfor
+      call setqflist(l:qflist)
+      execute 'copen'
+    else
+      echom "No '" . xmlid . "' occurence found in XML files"
+      execute 'cclose'
     endif
   endif
 endfunction
