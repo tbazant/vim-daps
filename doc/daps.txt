@@ -124,3 +124,7 @@ g:daps_auto_import_xmlids = 0 or 1
 g:daps_dapsroot = <directory>
   Use daps from a git checkout directory instead of the default RPM installation.
   This option is useful if you want to try the development version of daps.
+
+g:daps_optipng_before_build = 0 or 1
+  Check for non-optimized images corresponding to the current DC-* file and optimize
+  them if necessary when running :DapsBuild(). Default is 1.
