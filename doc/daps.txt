@@ -128,3 +128,11 @@ g:daps_dapsroot = <directory>
 g:daps_optipng_before_build = 0 or 1
   Check for non-optimized images corresponding to the current DC-* file and optimize
   them if necessary when running :DapsBuild(). Default is 1.
+
+g:daps_debug = 0 or 1
+  Set this to output debug messages, either to an editor windowm, or a file specified with
+  'g:daps_log_file'
+
+g:daps_log_file = <log_file_name>
+  The file name of a file where to output debug messages. Note that 'g:daps_debug' must
+  be set to '1'

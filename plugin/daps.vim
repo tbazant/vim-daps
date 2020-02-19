@@ -125,6 +125,17 @@ function s:Init()
     endif
   endif
 
+  " check if g:daps_log_file is set
+  if !exists("b:log_file")
+    if exists("g:daps_log_file")
+      if(writefile(["Start of a new round", "********************"], g:daps_log_file, 'a') == 0)
+        let b:log_file = g:daps_log_file
+      else
+        echoe g:daps_log_file . ' is not writable'
+      endif
+    endif
+  endif
+
   " determine daps root and daps cmd
   if !exists("b:dapsroot")
     if !exists("g:daps_dapsroot")
@@ -212,9 +223,14 @@ function s:Init()
   endif
 endfunction
 
-function s:dbg(lnum, msg)
+function s:dbg(msg)
   if b:debug == 1
-    echo "DEBUG (line " . a:lnum . "): " . a:msg
+    let msg = "DEBUG: " . a:msg
+    if exists("b:log_file")
+      call writefile([msg], b:log_file, 'a')
+    else
+      echo msg
+    endif
   endif
 endfunction
 
@@ -227,9 +243,9 @@ endfunction
 function s:ListXMLdictionaries(A,L,P)
   " make sure the dict list is unique
   let dict_list = filter(values(g:daps_db_schema),'index(values(g:daps_db_schema), v:val, v:key+1)==-1')
-  call s:dbg(expand('<slnum>'), 'dict_list -> ' . dic_list)
+  call s:dbg('dict_list -> ' . dic_list)
   let result = map(copy(dict_list), 'fnamemodify(v:val, ":t:r")')
-  call s:dbg(expand('<slnum>'), 'result -> ' . result)
+  call s:dbg('result -> ' . result)
   return join(result, "\n")
 endfunction
 
@@ -244,9 +260,9 @@ function s:DapsImportXmlIds()
   if !empty(s:IsDCfileSet())
     " grep MAIN file out of the DC-file
     let main_file = matchstr(system('grep "^\s*MAIN=" ' . b:dc_file), '"\zs[^"]\+\ze"')
-    call s:dbg(expand('<slnum>'), 'main file -> ' . main_file)
+    call s:dbg('main file -> ' . main_file)
     let xsltproc_cmd = 'xsltproc --xinclude ' . b:dapsroot . '/daps-xslt/common/get-all-xmlids.xsl xml/' . main_file
-    call s:dbg(expand('<slnum>'), 'xsltproc_cmd -> ' . xsltproc_cmd)
+    call s:dbg('xsltproc_cmd -> ' . xsltproc_cmd)
     let g:xmldata_{b:doctype}.xref[1].linkend = sort(systemlist(xsltproc_cmd))
   endif
 endfunction
@@ -280,27 +296,28 @@ endfunction
 function s:DapsOpenTarget(...)
   if a:0 > 0
     " check if XML ID was provided via cmdline
-    call s:dbg(expand('<slnum>'), "XML ID supplied on the command line -> " . a:1)
+    call s:dbg("XML ID supplied on the command line -> " . a:1)
     let rootid = a:1
   else
     " check if cursor is on '<xref linkend=""' line and use as a --rootid
     let rootid = matchstr(getline("."), '\c linkend=\([''"]\)\zs.\{-}\ze\1')
-    call s:dbg(expand('<slnum>'), 'rootid -> ' . rootid)
+    call s:dbg('rootid -> ' . rootid)
     " check if cursor is on '<link xlink:href=""' line
     let href = matchstr(getline("."), '\c xlink:href=\([''"]\)\zs.\{-}\ze\1')
-    call s:dbg(expand('<slnum>'), 'href -> ' . href)
+    call s:dbg('href -> ' . href)
     if !empty(href)
       if exists("g:daps_html_viewer")
-        silent execute '! (' . g:daps_html_viewer . ' ' . href . ')'
+        execute '! (' . g:daps_html_viewer . ' ' . href . ')'
       else
-        silent execute '! (xdg-open ' . href . ')'
+        execute '! (xdg-open ' . href . ')'
       endif
+      redraw!
     endif
   endif
   if !empty(rootid)
     if !empty(s:IsDCfileSet())
       let file_cmd = b:dapscmd . ' -d ' . b:dc_file . ' list-file --rootid=' . rootid . ' 2> /dev/null'
-      call s:dbg(expand('<slnum>'), 'file_cmd => ' . file_cmd)
+      call s:dbg('file_cmd => ' . file_cmd)
       let file = systemlist(file_cmd)[0]
       if filereadable(file)
         " open the file in a new tab and point cursor on the correct line
@@ -317,7 +334,7 @@ endfunction
 function s:ListXmlIds(A,L,P)
   " get list of XML IDs in the current file
   let xmlids = system('xsltproc ' . b:dapsroot . '/daps-xslt/common/get-all-xmlids.xsl ' . expand('%'))
-  call s:dbg(expand('<slnum>'), 'Num of XML IDs -> ' . len(xmlids))
+  call s:dbg('Num of XML IDs -> ' . len(xmlids))
   return xmlids
 endfunction
 
@@ -325,12 +342,12 @@ endfunction
 function s:DapsOpenReferers(...)
   if a:0 > 0
     " check if XML ID was provided via cmdline
-    call s:dbg(expand('<slnum>'), "XML ID supplied on the command line -> " . a:1)
+    call s:dbg("XML ID supplied on the command line -> " . a:1)
     let xmlid = a:1
   else
     " check if cursor is on 'id=""' line and grep the XML ID from there
     let xmlid = matchstr(getline("."), '\c xml:id=\([''"]\)\zs.\{-}\ze\1')
-    call s:dbg(expand('<slnum>'), "XML ID read from the current line -> " . xmlid)
+    call s:dbg("XML ID read from the current line -> " . xmlid)
     if empty(xmlid)
       echoerr "No XML ID specified"
       return 1
@@ -340,13 +357,13 @@ function s:DapsOpenReferers(...)
   if !empty(s:IsDCfileSet())
     " get list of XML files for a given DC file
     let cmd = b:dapscmd . " -d " . b:dc_file . " list-srcfiles --xmlonly"
-    call s:dbg(expand('<slnum>'), "ListXMLfiles cmd -> " . cmd)
+    call s:dbg("ListXMLfiles cmd -> " . cmd)
     let files = join(systemlist(cmd), ' ')
-    call s:dbg(expand('<slnum>'), "Num of XML files -> " . len(split(files, '\s')))
+    call s:dbg("Num of XML files -> " . len(split(files, '\s')))
     let cmd = "grep -in 'linkend=\"" . xmlid . "\"' " . files
-    call s:dbg(expand('<slnum>'), "grepXMLids cmd -> " . cmd)
+    call s:dbg("grepXMLids cmd -> " . cmd)
     let result = systemlist(cmd)
-    call s:dbg(expand('<slnum>'), "Num of occurences -> " . len(result))
+    call s:dbg("Num of occurences -> " . len(result))
     " create a quickfixlist from grep results
     if !empty(result)
       let qflist = []
@@ -372,17 +389,17 @@ endfunction
 " set doctype for DB documents
 function s:DapsSetDoctype(...)
   if a:0 == 0
-    call s:dbg(expand('<slnum>'), 'No doctype specified on the cmdline, trying .vimrc')
+    call s:dbg('No doctype specified on the cmdline, trying .vimrc')
     if exists("g:daps_doctype")
-      call s:dbg(expand('<slnum>'), "'g:daps_doctype' is '" . g:daps_doctype . "', taking that")
+      call s:dbg("'g:daps_doctype' is '" . g:daps_doctype . "', taking that")
       let b:doctype = g:daps_doctype
     else
       let b:doctype = "docbook50"
-      call s:dbg(expand('<slnum>'), "No 'g:daps_doctype' is set, defaulting to '" . b:doctype . "'")
+      call s:dbg("No 'g:daps_doctype' is set, defaulting to '" . b:doctype . "'")
     endif
   else
     let b:doctype = a:1
-    call s:dbg(expand('<slnum>'), "doctype '" . b:doctype . "' was specified on the cmdline, taking that")
+    call s:dbg("doctype '" . b:doctype . "' was specified on the cmdline, taking that")
   endif
   call xmlcomplete#CreateConnection(b:doctype)
   call s:DapsImportEntites()
@@ -412,7 +429,7 @@ function s:DapsValidate()
       let validate_cmd .= ' --styleroot=' . b:styleroot
     endif
     let validate_cmd .= ' validate'
-    call s:dbg(expand('<slnum>'), 'validate_cmd -> ' . validate_cmd)
+    call s:dbg('validate_cmd -> ' . validate_cmd)
     :silent let result = systemlist(validate_cmd)
     if v:shell_error == 0
       execute 'cclose'
@@ -455,13 +472,13 @@ function s:DapsStylecheck()
   if !empty(s:IsDCfileSet())
     " find out the location of the style result XML file
     let cmd = b:dapscmd . ' -d ' . b:dc_file . ' stylecheck --file ' . expand('%')
-    call s:dbg(expand('<slnum>'), 'stylecheck cmd -> ' . cmd)
+    call s:dbg('stylecheck cmd -> ' . cmd)
     :silent let style_xml = system(cmd)
-    call s:dbg(expand('<slnum>'), 'style_xml -> ' . style_xml)
+    call s:dbg('style_xml -> ' . style_xml)
     let cmd = 'xsltproc ' . s:plugindir . '/tools/vim_stylecheck.xsl ' . style_xml
-    call s:dbg(expand('<slnum>'), 'xsltproc style cmd -> ' . cmd)
+    call s:dbg('xsltproc style cmd -> ' . cmd)
     :silent let style_result = systemlist(cmd)
-    call s:dbg(expand('<slnum>'), 'Num of style results -> ' . len(style_result))
+    call s:dbg('Num of style results -> ' . len(style_result))
     if !empty(style_result)
       " define signs
       sign define error text=E
@@ -505,14 +522,14 @@ endfunction
 " validates the current file only
 function s:DapsValidateFile()
   " get the schema URI
-  call s:dbg(expand('<slnum>'), 'g:daps_db_schema size -> ' . len(g:daps_db_schema))
+  call s:dbg('g:daps_db_schema size -> ' . len(g:daps_db_schema))
   for [key, value] in items(g:daps_db_schema)
     if value == b:doctype
       let schema_uri = key
       break
     endif
   endfor
-  call s:dbg(expand('<slnum>'), 'schema_uri -> ' . schema_uri)
+  call s:dbg('schema_uri -> ' . schema_uri)
   if exists('schema_uri')
     " get the schema file
     let schema_file = systemlist('xmlcatalog /etc/xml/catalog ' . schema_uri)[0]
@@ -521,12 +538,12 @@ function s:DapsValidateFile()
       echoe 'Schema uri ' . schema_uri . ' is missing in XML catalog'
       return 1
     endif
-    call s:dbg(expand('<slnum>'), 'schema_file -> ' . schema_file)
+    call s:dbg('schema_file -> ' . schema_file)
     " run jing to check the current file's structure
     let jing_cmd = 'jing -i ' . schema_file . ' ' . expand('%')
-    call s:dbg(expand('<slnum>'), 'jing_cmd -> ' . jing_cmd)
+    call s:dbg('jing_cmd -> ' . jing_cmd)
     let jing_result = systemlist(jing_cmd)
-    call s:dbg(expand('<slnum>'), 'jing_result size -> ' . len(jing_result))
+    call s:dbg('jing_result size -> ' . len(jing_result))
     if !empty(jing_result)
       " define signs
       sign define error text=E
@@ -578,14 +595,14 @@ function s:DapsBuild(target)
       else
         let rootid = matchstr(join(getline(1,'$')), '\c xml:id=\([''"]\)\zs.\{-}\ze\1')
       endif
-      call s:dbg(expand('<slnum>'), 'rootid -> ' . rootid)
+      call s:dbg('rootid -> ' . rootid)
       " assemble daps cmdline
       let dapscmd = b:dapscmd . ' -d ' . b:dc_file
       if exists('b:styleroot')
         let dapscmd .= ' --styleroot=' . b:styleroot
       endif
       let dapscmd .= ' --builddir=' . b:builddir . ' ' . a:target . ' --rootid=' . rootid . ' 2> /dev/null'
-      call s:dbg(expand('<slnum>'), 'dapscmd -> ' . dapscmd)
+      call s:dbg('dapscmd -> ' . dapscmd)
       let target_dir = systemlist(dapscmd)[0]
       if a:target == 'html'
         let target_file = join([target_dir, 'index.html'], '')
@@ -594,20 +611,23 @@ function s:DapsBuild(target)
       endif
       if g:daps_optipng_before_build == 1
         let cmd = b:dapscmd . ' -d ' . b:dc_file . ' optipng'
-        call s:dbg(expand('<slnum>'), 'optipng_cmd -> ' . cmd)
+        call s:dbg('optipng_cmd -> ' . cmd)
         silent let result = system(cmd);
         if v:shell_error == 0
-          call s:dbg(expand('<slnum>'), 'All images are optimized')
+          call s:dbg('All images are optimized')
         else
           echoe result;
         endif
       endif
       if exists("g:daps_" . a:target . "_viewer")
         let doc_viewer = g:daps_{a:target}_viewer
-        silent execute '! (' . doc_viewer . ' ' . target_file . ')'
+        let cmd = doc_viewer . ' ' . target_file
       else
-        silent execute '! (xdg-open ' . target_file . ')'
+        let cmd = 'xdg-open ' . target_file
       endif
+      call s:dbg('viewer cmd -> ' . cmd)
+      execute '!' . cmd
+      redraw!
     endif
   endif
 endfunction
@@ -642,13 +662,13 @@ function s:DapsImportEntites(...)
     endif
     " no arg given, try daps' getentityname.py
     let getentityname = b:dapsroot . '/libexec/getentityname.py'
-    call s:dbg(expand('<slnum>'), 'getentityname -> ' . getentityname)
+    call s:dbg('getentityname -> ' . getentityname)
     let ent_str = substitute(system(getentityname . ' ' . expand('%:p')), '\n\+$', '', '')
-    call s:dbg(expand('<slnum>'), 'ent_str -> ' . ent_str)
+    call s:dbg('ent_str -> ' . ent_str)
     let ent_files = split(ent_str, ' ')
     if len(ent_files) == 0
       " no ent files provided or found
-      call s:dbg(expand('<slnum>'), 'No entity file(s) could be extracted, specify them on the command line')
+      call s:dbg('No entity file(s) could be extracted, specify them on the command line')
       return
     else
       " add 'xml/' before each ent filename
@@ -657,12 +677,12 @@ function s:DapsImportEntites(...)
   else
     let ent_files = a:000
   endif
-  call s:dbg(expand('<slnum>'), 'Num of ent_str -> ' . len(ent_files))
+  call s:dbg('Num of ent_str -> ' . len(ent_files))
 
   for ent_file in ent_files
     " check if file exists
     let ent_file = expand(ent_file)
-    call s:dbg(expand('<slnum>'), 'ent_file -> ' . ent_file)
+    call s:dbg('ent_file -> ' . ent_file)
     if !filereadable(ent_file)
       echoerr 'File ' . ent_file . ' is not readable'
       continue
@@ -676,7 +696,7 @@ function s:DapsImportEntites(...)
       endif
     endfor
     " assing docbk_entity vriable with new content
-    call s:dbg(expand('<slnum>'), 'b:doctype -> ' . b:doctype)
+    call s:dbg('b:doctype -> ' . b:doctype)
     let g:xmldata_{b:doctype}['vimxmlentities'] += list
   endfor
   let sorted = sort(copy(g:xmldata_{b:doctype}['vimxmlentities']))
