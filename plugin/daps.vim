@@ -37,8 +37,8 @@ if !exists(":DapsSetDoctype")
 endif
 
 " import DB entities from external file
-if !exists(":DapsImportEntites")
-  command -complete=file -nargs=* DapsImportEntites :call s:DapsImportEntites(<f-args>)
+if !exists(":DapsImportEntities")
+  command -complete=file -nargs=* DapsImportEntities :call s:DapsImportEntities(<f-args>)
 endif
 
 " daps validate
@@ -111,9 +111,7 @@ function s:Init()
   " fill the  DB schema resolving hash
   let g:daps_db_schema = {
         \'https://github.com/openSUSE/geekodoc/raw/master/geekodoc/rng/geekodoc5-flat.rng': 'geekodoc5',
-        \'https://github.com/openSUSE/geekodoc/raw/master/geekodoc/rng/geekodoc5-flat.rnc': 'geekodoc5',
         \'http://www.oasis-open.org/docbook/xml/5.0/rng/docbook.rng': 'docbook50',
-        \'http://www.oasis-open.org/docbook/xml/5.0/rng/docbook.rnc': 'docbook50',
         \}
 
   " check if g:daps_debug is set
@@ -141,10 +139,15 @@ function s:Init()
     if !exists("g:daps_dapsroot")
       let b:dapsroot = '/usr/share/daps'
       let b:dapscmd = '/usr/bin/daps'
+      let b:dapscfgdir = '/etc/daps/'
     else
       let b:dapsroot = g:daps_dapsroot
       let b:dapscmd = b:dapsroot . '/bin/daps --dapsroot=' . b:dapsroot
+      let b:dapscfgdir = b:dapsroot . '/etc/'
     endif
+  call s:dbg('dapsroot -> ' . b:dapsroot)
+  call s:dbg('dapscmd -> ' . b:dapscmd)
+  call s:dbg('dapscfgdir -> ' . b:dapscfgdir)
   endif
 
   " decide whether ask for DC file on startup and do so if yes
@@ -173,18 +176,11 @@ function s:Init()
 
   " decide whether run :DapsValidateFile before :DapsValidate
   if empty("g:daps_auto_validate_file")
-    let g:daps_auto_validate_filei = 0
+    let g:daps_auto_validate_file = 0
   endif
 
-  " decide whether run entity, set doctype, and import on new file open
-  if exists("g:daps_entity_import_autostart")
-    let b:entity_import_autostart = g:daps_entity_import_autostart
-  else
-    let b:entity_import_autostart = 0
-  endif
-  if b:entity_import_autostart == 1
-    autocmd BufReadPost,FileType docbk call s:DapsSetDoctype()
-  endif
+  " set doctype preventively
+  call s:DapsSetDoctype()
 
   " decide whether to read the xml/schemas.xml file for DocType
   if exists("g:daps_xmlschemas_autostart")
@@ -203,6 +199,17 @@ function s:Init()
     endif
   endif
 
+
+  " decide whether run entity, set doctype, and import on new file open
+  if exists("g:daps_entity_import_autostart")
+    let b:entity_import_autostart = g:daps_entity_import_autostart
+  else
+    let b:entity_import_autostart = 0
+  endif
+  if b:entity_import_autostart == 1
+    autocmd BufReadPost,FileType docbk call s:DapsImportEntities()
+  endif
+
   " check if 'g:daps_builddir' exists and trigger setting it in current buffer
   if !exists("g:daps_builddir")
     let g:daps_builddir = getcwd() . '/build/'
@@ -219,7 +226,7 @@ function s:Init()
 
   " check if 'g:daps_optipng_before_build' exists and set default value
   if !exists("g:daps_optipng_before_build")
-    let g:daps_optipng_before_build = 1
+    let g:daps_optipng_before_build = 0
   endif
 endfunction
 
@@ -402,7 +409,7 @@ function s:DapsSetDoctype(...)
     call s:dbg("doctype '" . b:doctype . "' was specified on the cmdline, taking that")
   endif
   call xmlcomplete#CreateConnection(b:doctype)
-  call s:DapsImportEntites()
+  call s:DapsImportEntities()
 endfunction
 
 " check if DC file was previously set via DapsSetDCfile()
@@ -447,8 +454,8 @@ function s:DapsValidate()
         for line in result
           let sl = split(line, ':')
           call add(qflist, {
-                \ 'filename': sl[0],
-                \ 'lnum': sl[1],
+                \ 'filename': 'xml/' . split(sl[0], '/')[-1],
+                \ 'lnum': sl[1] + 5,
                 \ 'type': 'error',
                 \ 'text': sl[3],
                 \})
@@ -646,15 +653,15 @@ function s:DapsXmlFormat()
   " save the current cursor position
   let clin = line(".")
   let ccol = col(".")
-  execute('%!' . xmlformat . ' -f /etc/daps/docbook-xmlformat.conf')
+  execute('%!' . xmlformat . ' -f ' . b:dapscfgdir . 'docbook-xmlformat.conf')
   " go back to the saved cursor position
   call cursor(clin, ccol)
 endfunction
 
-" imports entites from a file to a DTD file
-" 1) look if arguments are a list of entity files and try to extract entites;
+" imports Entities from a file to a DTD file
+" 1) look if arguments are a list of entity files and try to extract Entities;
 " 2) if no argument is given, run getentityname.py to get the list of files
-function s:DapsImportEntites(...)
+function s:DapsImportEntities(...)
   if a:0 == 0
     " return for fugitive:// paths
     if expand('%:p') =~ '^fugitive'
