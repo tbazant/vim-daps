@@ -58,7 +58,7 @@ endif
 
 " daps xmlformat
 if !exists(":DapsXmlFormat")
-  command -nargs=0 DapsXmlFormat :call s:DapsXmlFormat(<f-args>)
+  command -nargs=0 -range=% DapsXmlFormat <line1>,<line2>call s:DapsXmlFormat(<f-args>)
 endif
 
 " daps html
@@ -102,6 +102,7 @@ endif
 if !exists(":DapsShiftSectDown")
   command -nargs=0 -range DapsShiftSectDown <line1>,<line2>s/sect\(\d\)\(.*\)>/\="sect" . (submatch(1) + 1) . submatch(2) . ">"/g
 endif
+
 
 " - - - - - - - - - - - - -   f u n c t i o n s   - - - - - - - - - - - - "
 
@@ -640,7 +641,7 @@ function s:DapsBuild(target)
 endfunction
 
 " formats the XML source
-function s:DapsXmlFormat()
+function s:DapsXmlFormat() range
   " check if xmlformat script is installed
   if executable('xmlformat')
     let xmlformat = 'xmlformat'
@@ -653,7 +654,20 @@ function s:DapsXmlFormat()
   " save the current cursor position
   let clin = line(".")
   let ccol = col(".")
-  execute('%!' . xmlformat . ' -f ' . b:dapscfgdir . 'docbook-xmlformat.conf')
+  call s:dbg('cursor position -> ' . clin . ',' . ccol)
+  call s:dbg('range a:firstline -> ' . a:firstline)
+  call s:dbg('range a:lastline -> ' . a:lastline)
+  let indent_size = indent(a:firstline) / shiftwidth()
+  call s:dbg('indent_size -> ' . indent_size)
+  let cmd = '!' . xmlformat . ' -f ' . b:dapscfgdir . 'docbook-xmlformat.conf'
+  call s:dbg('xmlformat command -> ' . cmd)
+  silent execute(a:firstline.','.a:lastline.cmd)
+  if a:firstline > 1 && a:lastline < line('$')
+    " re-indent the visual block
+    let repeat = repeat(">", indent_size)
+    call s:dbg('indent cmd -> ' . repeat)
+    silent execute(a:firstline.','.a:lastline.repeat)
+  endif
   " go back to the saved cursor position
   call cursor(clin, ccol)
 endfunction
