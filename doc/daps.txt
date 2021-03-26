@@ -35,7 +35,9 @@ Commands:
   ROOTID will be built.
 
 :DapsXmlFormat
-  Beautifies the XML source code in the current buffer.
+  Beautifies the XML source code in the current buffer. If you highlight
+  a visual block, source formatting will be applied only to it and reindented
+  afterwards.
 
 :DapsImportEntites <entity_file>
   Imports XML entities found in the given file for auto-completion
