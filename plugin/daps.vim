@@ -229,6 +229,12 @@ function s:Init()
   if !exists("g:daps_optipng_before_build")
     let g:daps_optipng_before_build = 0
   endif
+
+  " check for xmlformat options
+  let b:xmlformat_script = get(g:, 'daps_xmlformat_script', 'xmlformat.pl')
+
+  " check for xmlformat config file
+  let b:xmlformat_conf = get(g:, 'daps_xmlformat_conf', b:dapscfgdir . 'docbook-xmlformat.conf')
 endfunction
 
 function s:dbg(msg)
@@ -428,7 +434,7 @@ endfunction
 " validates the document based on the DC file with tab completion
 function s:DapsValidate()
   if !empty(s:IsDCfileSet())
-    " check whether to run DaspValidateFile first and return 1 on error
+    " check whether to run DapsValidateFile first and return 1 on error
     if g:daps_auto_validate_file == 1 && s:DapsValidateFile() == 1
       return 1
     endif
@@ -642,15 +648,6 @@ endfunction
 
 " formats the XML source
 function s:DapsXmlFormat() range
-  " check if xmlformat script is installed
-  if executable('xmlformat')
-    let xmlformat = 'xmlformat'
-  elseif executable('xmlformat.pl')
-    let xmlformat = 'xmlformat.pl'
-  else
-    echoerr("'xmlformat' not found in your path")
-    return
-  endif
   " save the current cursor position
   let clin = line(".")
   let ccol = col(".")
@@ -659,7 +656,7 @@ function s:DapsXmlFormat() range
   call s:dbg('range a:lastline -> ' . a:lastline)
   let indent_size = indent(a:firstline) / shiftwidth()
   call s:dbg('indent_size -> ' . indent_size)
-  let cmd = '!' . xmlformat . ' -f ' . b:dapscfgdir . 'docbook-xmlformat.conf'
+  let cmd = '!' . b:xmlformat_script . ' -f ' . b:xmlformat_conf
   call s:dbg('xmlformat command -> ' . cmd)
   silent execute(a:firstline.','.a:lastline.cmd)
   if a:firstline > 1 && a:lastline < line('$')
@@ -760,6 +757,7 @@ function s:DapsSetStyleroot(styleroot)
     echoerr a:styleroot . ' is not a directory'
   endif
 endfunction
+
 
 " - - - - - - - - - - - - -  e n d  f u n c t i o n s   - - - - - - - - - - - - "
 

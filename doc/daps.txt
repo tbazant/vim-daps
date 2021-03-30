@@ -138,3 +138,11 @@ g:daps_debug = 0 or 1
 g:daps_log_file = <log_file_name>
   The file name of a file where to output debug messages. Note that 'g:daps_debug' must
   be set to '1'
+
+g:daps_xmlformat_script = <path_to_script>
+  The file name of the executable script that formats the XML source document.
+  Defaults to 'xmlformat' or 'xmlformat.pl' if found in the path.
+
+g:daps_xmlformat_conf = <path_to_conffile>
+  The file name of the configuration file for 'xmlformat'. Defaults to
+  the one provided by daps.
