@@ -243,6 +243,9 @@ function s:Init()
       return
     endif
   endif
+
+  " check for xmlformat config file
+  let b:xmlformat_conf = get(g:, 'daps_xmlformat_conf', b:dapscfgdir . 'docbook-xmlformat.conf')
 endfunction
 
 function s:dbg(msg)
@@ -664,7 +667,7 @@ function s:DapsXmlFormat() range
   call s:dbg('range a:lastline -> ' . a:lastline)
   let indent_size = indent(a:firstline) / shiftwidth()
   call s:dbg('indent_size -> ' . indent_size)
-  let cmd = '!' . b:xmlformat_script . ' -f ' . b:dapscfgdir . 'docbook-xmlformat.conf'
+  let cmd = '!' . b:xmlformat_script . ' -f ' . b:xmlformat_conf
   call s:dbg('xmlformat command -> ' . cmd)
   silent execute(a:firstline.','.a:lastline.cmd)
   if a:firstline > 1 && a:lastline < line('$')
