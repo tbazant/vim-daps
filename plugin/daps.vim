@@ -231,18 +231,7 @@ function s:Init()
   endif
 
   " check for xmlformat options
-  let b:xmlformat_script = get(g:, 'daps_xmlformat_script')
-  if !exists('b:xmlformat_script')
-    " check if xmlformat script is installed
-    if executable('xmlformat')
-      let b:xmlformat_script = 'xmlformat'
-    elseif executable('xmlformat.pl')
-      let b:xmlformat_script = 'xmlformat.pl'
-    else
-      echoerr("'xmlformat' not found in your path")
-      return
-    endif
-  endif
+  let b:xmlformat_script = get(g:, 'daps_xmlformat_script', 'xmlformat.pl')
 
   " check for xmlformat config file
   let b:xmlformat_conf = get(g:, 'daps_xmlformat_conf', b:dapscfgdir . 'docbook-xmlformat.conf')
