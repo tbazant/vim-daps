@@ -663,7 +663,10 @@ function s:DapsXmlFormat() range
     " re-indent the visual block
     let repeat = repeat(">", indent_size)
     call s:dbg('indent cmd -> ' . repeat)
-    silent execute(a:firstline.','.a:lastline.repeat)
+    " a:lastline is probably not valid anymore after re-formatting, need
+    " matchit's % to mark the vusual block correctly
+    "silent execute('normal V%:'.repeat)
+    silent execute("normal lV%" . indent_size . ">")
   endif
   " go back to the saved cursor position
   call cursor(clin, ccol)
