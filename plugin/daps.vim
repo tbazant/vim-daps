@@ -691,9 +691,6 @@ function s:DapsImportEntities(...)
       " no ent files provided or found
       call s:dbg('No entity file(s) could be extracted, specify them on the command line')
       return
-    else
-      " add 'xml/' before each ent filename
-      call map(ent_files, '"xml/" . v:val')
     endif
   else
     let ent_files = a:000
