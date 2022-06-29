@@ -146,9 +146,9 @@ function s:Init()
       let b:dapscmd = b:dapsroot . '/bin/daps --dapsroot=' . b:dapsroot
       let b:dapscfgdir = b:dapsroot . '/etc/'
     endif
-  call s:dbg('dapsroot -> ' . b:dapsroot)
-  call s:dbg('dapscmd -> ' . b:dapscmd)
-  call s:dbg('dapscfgdir -> ' . b:dapscfgdir)
+    call s:dbg('dapsroot -> ' . b:dapsroot)
+    call s:dbg('dapscmd -> ' . b:dapscmd)
+    call s:dbg('dapscfgdir -> ' . b:dapscfgdir)
   endif
 
   " decide whether ask for DC file on startup and do so if yes
@@ -431,6 +431,28 @@ function s:IsDCfileSet()
   endif
 endfunction
 
+" run command 'cmd' in a terminal buffer named 'name' with exit callback
+" 'exit_cb'
+function s:RunCmdTerm(cmd, name, exit_cb)
+  let cmd = a:cmd
+  let name = a:name
+  let exit_cb = a:exit_cb
+  call s:dbg('name of terminal buffer -> ' . name)
+  call s:dbg('command for terminal buffer -> ' . cmd)
+  call s:dbg('function for exit callback -> ' . exit_cb)
+  " close existing terminal buffer with the same name
+  let ex_term_buf_no = bufnr(name)
+  call s:dbg('ex_term_buf_no -> ' . ex_term_buf_no)
+  if ex_term_buf_no > -1
+    execute 'bwipeout! ' . ex_term_buf_no
+  endif
+  " start the command itself
+  let term_buf_no = term_start(cmd, {'term_name': name, 'term_rows': 10, 'exit_cb': exit_cb})
+  " return to the editing buffer
+  wincmd p
+  return term_buf_no
+endfunction
+
 " validates the document based on the DC file with tab completion
 function s:DapsValidate()
   if !empty(s:IsDCfileSet())
@@ -438,42 +460,39 @@ function s:DapsValidate()
     if g:daps_auto_validate_file == 1 && s:DapsValidateFile() == 1
       return 1
     endif
-    let validate_cmd = b:dapscmd . ' -d ' . b:dc_file
+    let validate_cmd = b:dapscmd . ' -vv -d ' . b:dc_file
     if exists('b:styleroot')
       let validate_cmd .= ' --styleroot=' . b:styleroot
     endif
     let validate_cmd .= ' validate'
     call s:dbg('validate_cmd -> ' . validate_cmd)
-    :silent let result = systemlist(validate_cmd)
-    if v:shell_error == 0
-      execute 'cclose'
-      echom 'All files are valid.'
-      return 0
-    else
-      " process the error messsage
-      " remove lines without ":"
-      call filter(result, "v:val =~ '^/.*:\\d\\+:'")
-      " define sign
-      sign define error text=E
-      if !empty(result)
-        let qflist = []
-        let id = 1
-        for line in result
-          let sl = split(line, ':')
-          call add(qflist, {
-                \ 'filename': 'xml/' . split(sl[0], '/')[-1],
-                \ 'lnum': sl[1] + 5,
-                \ 'type': 'error',
-                \ 'text': sl[3],
-                \})
-          execute 'sign place ' . id . ' line=' . sl[1] . ' name=error file=' . sl[0]
-          let id += 1
-        endfor
-        call setqflist(qflist)
-        execute 'copen'
-      endif
-    endif
+    " let the command run in vim terminal
+    let term_buf_no = s:RunCmdTerm(validate_cmd, 'daps', 'ValidateQuickfix')
   endif
+endfunction
+
+" callback for creating quickfix list with validation errors
+function ValidateQuickfix(job, exit_status)
+  let job = a:job
+  call s:dbg('job -> ' . job)
+  let term_buf_no = ch_getbufnr(job, 'out')
+  call s:dbg('term_buf_no -> ' . term_buf_no)
+  " go thru the terminal output and find errors if any
+  let result = getbufline(term_buf_no, 1, '$')
+  " remove lines without ":"
+  call filter(result, "v:val =~ '^/.*:\\d\\+:'")
+  let qflist = []
+  for line in result
+    let sl = split(line, ':')
+    call add(qflist, {
+          \ 'filename': 'xml/' . split(sl[0], '/')[-1],
+          \ 'lnum': sl[1] + 5,
+          \ 'type': 'error',
+          \ 'text': sl[4],
+          \})
+  endfor
+  call setqflist(qflist)
+  execute 'cwindow'
 endfunction
 
 " daps style check
@@ -595,55 +614,57 @@ endfunction
 " builds the current chapter or --rootid
 function s:DapsBuild(target)
   if !empty(s:IsDCfileSet())
-    if s:DapsValidate() == 0
-      " check if cursor is on 'id=""' line and use a --rootid
-      let rootid = matchstr(getline("."), '\c xml:id=\([''"]\)\zs.\{-}\ze\1')
-      if !empty(rootid)
-        " --rootid is limited to the following elements
-        let rootids = ['appendix', 'article', 'bibliography', 'book', 'chapter', 'glossary',
-              \ 'index', 'part', 'preface', 'sect1', 'section']
-        let element = matchstr(getline("."), '<\w\+')
-        if match(rootids, element[1:]) == -1
-          let rootid = ''
-        endif
-      else
-        let rootid = matchstr(join(getline(1,'$')), '\c xml:id=\([''"]\)\zs.\{-}\ze\1')
+    " save the build target across buffers
+    let s:DapsBuildTarget = a:target
+    call s:dbg('DapsBuildTarget -> ' . s:DapsBuildTarget)
+    " check if cursor is on 'id=""' line and use a --rootid
+    let rootid = matchstr(getline("."), '\c xml:id=\([''"]\)\zs.\{-}\ze\1')
+    if !empty(rootid)
+      " --rootid is limited to the following elements
+      let rootids = ['appendix', 'article', 'bibliography', 'book', 'chapter', 'glossary',
+            \ 'index', 'part', 'preface', 'sect1', 'section']
+      let element = matchstr(getline("."), '<\w\+')
+      if match(rootids, element[1:]) == -1
+        let rootid = ''
       endif
-      call s:dbg('rootid -> ' . rootid)
-      " assemble daps cmdline
-      let dapscmd = b:dapscmd . ' -d ' . b:dc_file
-      if exists('b:styleroot')
-        let dapscmd .= ' --styleroot=' . b:styleroot
-      endif
-      let dapscmd .= ' --builddir=' . b:builddir . ' ' . a:target . ' --rootid=' . rootid . ' 2> /dev/null'
-      call s:dbg('dapscmd -> ' . dapscmd)
-      let target_dir = systemlist(dapscmd)[0]
-      if a:target == 'html'
-        let target_file = join([target_dir, 'index.html'], '')
-      else
-        let target_file = target_dir
-      endif
-      if g:daps_optipng_before_build == 1
-        let cmd = b:dapscmd . ' -d ' . b:dc_file . ' optipng'
-        call s:dbg('optipng_cmd -> ' . cmd)
-        silent let result = system(cmd);
-        if v:shell_error == 0
-          call s:dbg('All images are optimized')
-        else
-          echoe result;
-        endif
-      endif
-      if exists("g:daps_" . a:target . "_viewer")
-        let doc_viewer = g:daps_{a:target}_viewer
-        let cmd = doc_viewer . ' ' . target_file
-      else
-        let cmd = 'xdg-open ' . target_file
-      endif
-      call s:dbg('viewer cmd -> ' . cmd)
-      execute '!' . cmd
-      redraw!
+    else
+      let rootid = matchstr(join(getline(1,'$')), '\c xml:id=\([''"]\)\zs.\{-}\ze\1')
     endif
+    call s:dbg('rootid -> ' . rootid)
+    " assemble daps cmdline
+    let dapscmd = b:dapscmd . ' -vv -d ' . b:dc_file
+    if exists('b:styleroot')
+      let dapscmd .= ' --styleroot=' . b:styleroot
+    endif
+    let dapscmd .= ' --builddir=' . b:builddir . ' ' . a:target . ' --rootid=' . rootid . ' 2> /dev/null'
+    call s:dbg('dapscmd -> ' . dapscmd)
+    " run dapscmd in a terminal window
+    let term_buf_no = s:RunCmdTerm(dapscmd, 'daps', 'BuildTarget')
   endif
+endfunc
+
+function BuildTarget(job, exit_status)
+  let job = a:job
+  call s:dbg('job -> ' . job)
+  let term_buf_no = ch_getbufnr(job, 'out')
+  call s:dbg('term_buf_no -> ' . term_buf_no)
+  " read the last line of the terminal
+  let target_dir = getbufline(term_buf_no, '$')[0]
+  call s:dbg('term_last_line -> ' . target_dir)
+  if s:DapsBuildTarget == 'html'
+    let target_file = target_dir . 'index.html'
+  else
+    let target_file = target_dir
+  endif
+  call s:dbg('target_file -> ' . target_file)
+  if exists("g:daps_" . s:DapsBuildTarget . "_viewer")
+    let doc_viewer = g:daps_{s:DapsBuildTarget}_viewer
+    let cmd = doc_viewer . ' ' . target_file
+  else
+    let cmd = 'xdg-open ' . target_file
+  endif
+  call s:dbg('viewer cmd -> ' . cmd)
+  call job_start(cmd)
 endfunction
 
 " formats the XML source
