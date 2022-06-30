@@ -108,8 +108,6 @@ endif
 
 " read g:daps_* variables from ~/.vimrc and set buffer-wide defaults
 function s:Init()
-  call s:dbg('# # # # # ' . expand('<sfile>') . ' # # # # #')
-
   " fill the  DB schema resolving hash
   let g:daps_db_schema = {
         \'https://github.com/openSUSE/geekodoc/raw/master/geekodoc/rng/geekodoc5-flat.rng': 'geekodoc5',
@@ -690,8 +688,6 @@ endfunction
 " formats the XML source
 function s:DapsXmlFormat() range
   call s:dbg('# # # # # ' . expand('<sfile>') . ' # # # # #')
-  " save the current cursor position as a mark
-  let winview = winsaveview()
   " check if the current buffer is valid
   if s:DapsValidateFile() == 0
     call s:dbg('range a:firstline -> ' . a:firstline)
@@ -710,8 +706,6 @@ function s:DapsXmlFormat() range
       silent execute("normal lV%" . indent_size . ">")
     endif
   endif
-  " go back to the saved cursor position
-  call winrestview(winview)
 endfunction
 
 " imports Entities from a file to a DTD file
