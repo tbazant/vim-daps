@@ -108,6 +108,7 @@ endif
 
 " read g:daps_* variables from ~/.vimrc and set buffer-wide defaults
 function s:Init()
+  call s:dbg('# # # # # ' . expand('<sfile>') . ' # # # # #')
 
   " fill the  DB schema resolving hash
   let g:daps_db_schema = {
@@ -250,11 +251,13 @@ endfunction
 
 " lists all DC files in the current directory
 function s:ListDCfiles(A,L,P)
+  call s:dbg('# # # # # ' . expand('<sfile>') . ' # # # # #')
   return system("ls -1 " . g:dcfile_glob_pattern . "*")
 endfunction
 
 " lists XML dictionaries from vim-daps plugin
 function s:ListXMLdictionaries(A,L,P)
+  call s:dbg('# # # # # ' . expand('<sfile>') . ' # # # # #')
   " make sure the dict list is unique
   let dict_list = filter(values(g:daps_db_schema),'index(values(g:daps_db_schema), v:val, v:key+1)==-1')
   call s:dbg('dict_list -> ' . dic_list)
@@ -265,12 +268,14 @@ endfunction
 
 " list all <xref>s' IDs from the current buffer
 function s:ListXrefTargets(A,L,P)
+  call s:dbg('# # # # # ' . expand('<sfile>') . ' # # # # #')
   let cmd = 'xsltproc ' . b:dapsroot . '/tools/get-all-xrefsids.xsl ' . expand('%') . ' | sort -u'
   return system(cmd)
 endfunction
 
 " import all XML IDs given a DC-file
 function s:DapsImportXmlIds()
+  call s:dbg('# # # # # ' . expand('<sfile>') . ' # # # # #')
   if !empty(s:IsDCfileSet())
     " grep MAIN file out of the DC-file
     let main_file = matchstr(system('grep "^\s*MAIN=" ' . b:dc_file), '"\zs[^"]\+\ze"')
@@ -283,6 +288,7 @@ endfunction
 
 " ask for DC file
 function s:AskForDCFile()
+  call s:dbg('# # # # # ' . expand('<sfile>') . ' # # # # #')
   call inputsave()
   let dc_file = input("Enter DC file: ", g:dcfile_glob_pattern, "file")
   call inputrestore()
@@ -292,6 +298,7 @@ endfunction
 
 " set current buffer's DC-* file
 function s:DapsSetDCfile(dc_file)
+  call s:dbg('# # # # # ' . expand('<sfile>') . ' # # # # #')
   if filereadable(a:dc_file)
     "set dc_file for current buffer
     let b:dc_file = a:dc_file
@@ -308,6 +315,7 @@ endfunction
 
 " implement `daps list-file`
 function s:DapsOpenTarget(...)
+  call s:dbg('# # # # # ' . expand('<sfile>') . ' # # # # #')
   if a:0 > 0
     " check if XML ID was provided via cmdline
     call s:dbg("XML ID supplied on the command line -> " . a:1)
@@ -346,6 +354,7 @@ endfunction
 
 " list all XML IDs
 function s:ListXmlIds(A,L,P)
+  call s:dbg('# # # # # ' . expand('<sfile>') . ' # # # # #')
   " get list of XML IDs in the current file
   let xmlids = system('xsltproc ' . b:dapsroot . '/daps-xslt/common/get-all-xmlids.xsl ' . expand('%'))
   call s:dbg('Num of XML IDs -> ' . len(xmlids))
@@ -354,6 +363,7 @@ endfunction
 
 " find pages which refer to provided xml:id via <xref linkend>
 function s:DapsOpenReferers(...)
+  call s:dbg('# # # # # ' . expand('<sfile>') . ' # # # # #')
   if a:0 > 0
     " check if XML ID was provided via cmdline
     call s:dbg("XML ID supplied on the command line -> " . a:1)
@@ -402,6 +412,7 @@ endfunction
 
 " set doctype for DB documents
 function s:DapsSetDoctype(...)
+  call s:dbg('# # # # # ' . expand('<sfile>') . ' # # # # #')
   if a:0 == 0
     call s:dbg('No doctype specified on the cmdline, trying .vimrc')
     if exists("g:daps_doctype")
@@ -421,6 +432,7 @@ endfunction
 
 " check if DC file was previously set via DapsSetDCfile()
 function s:IsDCfileSet()
+  call s:dbg('# # # # # ' . expand('<sfile>') . ' # # # # #')
   if exists("b:dc_file")
     return b:dc_file
   elseif exists("g:daps_dc_file")
@@ -434,6 +446,7 @@ endfunction
 " run command 'cmd' in a terminal buffer named 'name' with exit callback
 " 'exit_cb'
 function s:RunCmdTerm(cmd, name, exit_cb)
+  call s:dbg('# # # # # ' . expand('<sfile>') . ' # # # # #')
   let cmd = a:cmd
   let name = a:name
   let exit_cb = a:exit_cb
@@ -455,6 +468,7 @@ endfunction
 
 " validates the document based on the DC file with tab completion
 function s:DapsValidate()
+  call s:dbg('# # # # # ' . expand('<sfile>') . ' # # # # #')
   if !empty(s:IsDCfileSet())
     " check whether to run DapsValidateFile first and return 1 on error
     if g:daps_auto_validate_file == 1 && s:DapsValidateFile() == 1
@@ -473,6 +487,7 @@ endfunction
 
 " callback for creating quickfix list with validation errors
 function ValidateQuickfix_cb(job, exit_status)
+  call s:dbg('# # # # # ' . expand('<sfile>') . ' # # # # #')
   let job = a:job
   call s:dbg('job -> ' . job)
   let term_buf_no = ch_getbufnr(job, 'out')
@@ -497,6 +512,7 @@ endfunction
 
 " daps style check
 function s:DapsStylecheck()
+  call s:dbg('# # # # # ' . expand('<sfile>') . ' # # # # #')
   " check for 'sdsc' command
   if !executable('sdsc')
     echoe "Command 'sdsc' was not found"
@@ -614,6 +630,7 @@ endfunction
 
 " builds the current chapter or --rootid
 function s:DapsBuild(target)
+  call s:dbg('# # # # # ' . expand('<sfile>') . ' # # # # #')
   if !empty(s:IsDCfileSet())
     " save the build target across buffers
     let s:DapsBuildTarget = a:target
@@ -646,6 +663,7 @@ endfunc
 
 " callback to run build inside a trminal winow
 function BuildTarget_cb(job, exit_status)
+  call s:dbg('# # # # # ' . expand('<sfile>') . ' # # # # #')
   let job = a:job
   call s:dbg('job -> ' . job)
   let term_buf_no = ch_getbufnr(job, 'out')
@@ -700,6 +718,7 @@ endfunction
 " 1) look if arguments are a list of entity files and try to extract Entities;
 " 2) if no argument is given, run getentityname.py to get the list of files
 function s:DapsImportEntities(...)
+  call s:dbg('# # # # # ' . expand('<sfile>') . ' # # # # #')
   if a:0 == 0
     " return for fugitive:// paths
     if expand('%:p') =~ '^fugitive'
@@ -749,6 +768,7 @@ endfunction
 
 " lookup doctype info from xml/schemas.xml file
 function s:DapsLookupSchemasXML()
+  call s:dbg('# # # # # ' . expand('<sfile>') . ' # # # # #')
   " test for the xml/schemas.xml file
   if filereadable('xml/schemas.xml')
     let x_query = '/t:locatingRules/t:uri/@uri'
@@ -762,6 +782,7 @@ endfunction
 
 " set --buildroot for the current buffer
 function s:DapsSetBuilddir(builddir)
+  call s:dbg('# # # # # ' . expand('<sfile>') . ' # # # # #')
   " check if builddir exists and if it is a writable directory
   if filewritable(a:builddir) == 2
     let b:builddir = a:builddir
@@ -774,6 +795,7 @@ endfunction
 
 " set --styleroot for customstylesheets (overriding DC-* file setting)
 function s:DapsSetStyleroot(styleroot)
+  call s:dbg('# # # # # ' . expand('<sfile>') . ' # # # # #')
   " check if styleroot is writable
   if isdirectory(a:styleroot)
     let b:styleroot = a:styleroot
