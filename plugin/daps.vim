@@ -467,12 +467,12 @@ function s:DapsValidate()
     let validate_cmd .= ' validate'
     call s:dbg('validate_cmd -> ' . validate_cmd)
     " let the command run in vim terminal
-    let term_buf_no = s:RunCmdTerm(validate_cmd, 'daps', 'ValidateQuickfix')
+    let term_buf_no = s:RunCmdTerm(validate_cmd, 'daps', 'ValidateQuickfix_cb')
   endif
 endfunction
 
 " callback for creating quickfix list with validation errors
-function ValidateQuickfix(job, exit_status)
+function ValidateQuickfix_cb(job, exit_status)
   let job = a:job
   call s:dbg('job -> ' . job)
   let term_buf_no = ch_getbufnr(job, 'out')
@@ -554,6 +554,7 @@ endfunction
 
 " validates the current file only
 function s:DapsValidateFile()
+  call s:dbg('# # # # # ' . expand('<sfile>') . ' # # # # #')
   " get the schema URI
   call s:dbg('g:daps_db_schema size -> ' . len(g:daps_db_schema))
   for [key, value] in items(g:daps_db_schema)
@@ -639,11 +640,12 @@ function s:DapsBuild(target)
     let dapscmd .= ' --builddir=' . b:builddir . ' ' . a:target . ' --rootid=' . rootid . ' 2> /dev/null'
     call s:dbg('dapscmd -> ' . dapscmd)
     " run dapscmd in a terminal window
-    let term_buf_no = s:RunCmdTerm(dapscmd, 'daps', 'BuildTarget')
+    let term_buf_no = s:RunCmdTerm(dapscmd, 'daps', 'BuildTarget_cb')
   endif
 endfunc
 
-function BuildTarget(job, exit_status)
+" callback to run build inside a trminal winow
+function BuildTarget_cb(job, exit_status)
   let job = a:job
   call s:dbg('job -> ' . job)
   let term_buf_no = ch_getbufnr(job, 'out')
@@ -669,28 +671,29 @@ endfunction
 
 " formats the XML source
 function s:DapsXmlFormat() range
-  " save the current cursor position
-  let clin = line(".")
-  let ccol = col(".")
-  call s:dbg('cursor position -> ' . clin . ',' . ccol)
-  call s:dbg('range a:firstline -> ' . a:firstline)
-  call s:dbg('range a:lastline -> ' . a:lastline)
-  let indent_size = indent(a:firstline) / shiftwidth()
-  call s:dbg('indent_size -> ' . indent_size)
-  let cmd = '!' . b:xmlformat_script . ' -f ' . b:xmlformat_conf
-  call s:dbg('xmlformat command -> ' . cmd)
-  silent execute(a:firstline.','.a:lastline.cmd)
-  if a:firstline > 1 && a:lastline < line('$')
-    " re-indent the visual block
-    let repeat = repeat(">", indent_size)
-    call s:dbg('indent cmd -> ' . repeat)
-    " a:lastline is probably not valid anymore after re-formatting, need
-    " matchit's % to mark the vusual block correctly
-    "silent execute('normal V%:'.repeat)
-    silent execute("normal lV%" . indent_size . ">")
+  call s:dbg('# # # # # ' . expand('<sfile>') . ' # # # # #')
+  " save the current cursor position as a mark
+  let winview = winsaveview()
+  " check if the current buffer is valid
+  if s:DapsValidateFile() == 0
+    call s:dbg('range a:firstline -> ' . a:firstline)
+    call s:dbg('range a:lastline -> ' . a:lastline)
+    let indent_size = indent(a:firstline) / shiftwidth()
+    call s:dbg('indent_size -> ' . indent_size)
+    let cmd = '!' . b:xmlformat_script . ' -f ' . b:xmlformat_conf
+    call s:dbg('xmlformat command -> ' . cmd)
+    silent execute(a:firstline.','.a:lastline.cmd)
+    if a:firstline > 1 && a:lastline < line('$')
+      " re-indent the visual block
+      let repeat = repeat(">", indent_size)
+      call s:dbg('indent cmd -> ' . repeat)
+      " a:lastline is probably not valid anymore after re-formatting, need
+      " matchit's % to mark the vusual block correctly
+      silent execute("normal lV%" . indent_size . ">")
+    endif
   endif
   " go back to the saved cursor position
-  call cursor(clin, ccol)
+  call winrestview(winview)
 endfunction
 
 " imports Entities from a file to a DTD file
