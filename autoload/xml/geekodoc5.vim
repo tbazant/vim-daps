@@ -1,7 +1,7 @@
 " Vim XML data file
 " Last Change: 2022-06-22
 
-let g:xmldata_/home/tbazant/.vim/plugged/vim-daps/autoload/xml/geekodoc5 = {
+let g:xmldata_geekodoc5 = {
 \ 'vimxmlentities': ['lt', 'gt', 'amp', 'apos', 'quot'],
 \ 'vimxmlroot': ['abstract', 'annotation', 'appendix', 'article', 'book', 'calloutlist', 'chapter', 'enumsynopsis', 'example', 'figure', 'formalgroup', 'formalpara', 'glossary', 'glossdiv', 'glosslist', 'imagedata', 'imageobject', 'important', 'index', 'indexdiv', 'informalexample', 'informalfigure', 'informaltable', 'inlinemediaobject', 'itemizedlist', 'legalnotice', 'macrosynopsis', 'msgexplan', 'namespacesynopsis', 'note', 'orderedlist', 'para', 'part', 'partintro', 'personblurb', 'preface', 'procedure', 'programlisting', 'qandadiv', 'qandaentry', 'qandaset', 'refentry', 'reference', 'refsect1', 'refsect2', 'refsect3', 'refsection', 'refsynopsisdiv', 'revhistory', 'screen', 'sect1', 'sect2', 'sect3', 'sect4', 'sect5', 'section', 'set', 'simplelist', 'step', 'stepalternatives', 'table', 'task', 'taskprerequisites', 'taskrelated', 'tasksummary', 'textobject', 'tip', 'topic', 'typedefsynopsis', 'unionsynopsis', 'variablelist', 'videodata', 'videoobject', 'warning', 'xi:include'],
 \ 'edition': [
