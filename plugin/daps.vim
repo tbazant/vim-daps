@@ -58,7 +58,10 @@ endif
 
 " daps xmlformat
 if !exists(":DapsXmlFormat")
-  command -nargs=0 -range=% DapsXmlFormat <line1>,<line2>call s:DapsXmlFormat(<f-args>)
+  command -nargs=0 -range=% DapsXmlFormat 
+    \ let b:pos = winsaveview() |
+    \ <line1>,<line2>call s:DapsXmlFormat(<f-args>) |
+    \ call winrestview(b:pos)
 endif
 
 " daps html
