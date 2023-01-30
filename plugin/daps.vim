@@ -658,7 +658,6 @@ function BuildTarget_cb(job, exit_status)
   call s:dbg('term_buf_no -> ' . term_buf_no)
   " read the last line of the terminal
   let target_dir = getbufoneline(term_buf_no, '$')
-  "  let target_dir = getbufline(term_buf_no, '$')[0]
   call s:dbg('term_last_line -> ' . target_dir)
   if s:DapsBuildTarget == 'html'
     let target_file = target_dir . 'index.html'
