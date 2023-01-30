@@ -1,7 +1,6 @@
 " Vim plugin that implements some features of daps (https://opensuse.github.io/daps)
-" Maintainer:   Tomáš Bažant <tomas.bazant@yahoo.com>
+" Maintainer:   Tomáš Bažant <tomik.bazik@seznam.cz>
 " License:      This file is placed in the public domain.
-
 
 " - - - - - - - - - - - - - - i n i t i a l   s e t u p - - - - - - - - - - "
 " save the value of cpoptions
@@ -58,10 +57,10 @@ endif
 
 " daps xmlformat
 if !exists(":DapsXmlFormat")
-  command -nargs=0 -range=% DapsXmlFormat 
-    \ let b:pos = winsaveview() |
-    \ <line1>,<line2>call s:DapsXmlFormat(<f-args>) |
-    \ call winrestview(b:pos)
+  command -nargs=0 -range=% DapsXmlFormat
+        \ let b:pos = winsaveview() |
+        \ <line1>,<line2>call s:DapsXmlFormat(<f-args>) |
+        \ call winrestview(b:pos)
 endif
 
 " daps html
@@ -164,18 +163,10 @@ function s:Init()
   endif
 
   " set default pattern for DC file completion
-  if exists("g:daps_dcfile_glob_pattern")
-    let g:dcfile_glob_pattern = g:daps_dcfile_glob_pattern
-  else
-    let g:dcfile_glob_pattern = ""
-  endif
+  let g:dcfile_glob_pattern = get(g:, 'daps_dcfile_glob_pattern', "")
 
   " set default pattern for entity file completion
-  if exists("g:daps_entfile_glob_pattern")
-    let g:entfile_glob_pattern = g:daps_entfile_glob_pattern
-  else
-    let g:entfile_glob_pattern = "*"
-  endif
+  let g:entfile_glob_pattern = get(g:, 'daps_entfile_glob_pattern', "*")
 
   " decide whether run :DapsValidateFile before :DapsValidate
   if empty("g:daps_auto_validate_file")
@@ -204,28 +195,20 @@ function s:Init()
 
 
   " decide whether run entity, set doctype, and import on new file open
-  if exists("g:daps_entity_import_autostart")
-    let b:entity_import_autostart = g:daps_entity_import_autostart
-  else
-    let b:entity_import_autostart = 0
-  endif
+  let b:entity_import_autostart = get(g:, 'daps_entity_import_autostart', 0)
   if b:entity_import_autostart == 1
     autocmd BufReadPost,FileType docbk call s:DapsImportEntities()
   endif
 
   " check if 'g:daps_builddir' exists and trigger setting it in current buffer
-  if !exists("g:daps_builddir")
-    let g:daps_builddir = getcwd() . '/build/'
-  endif
+  let g:daps_builddir = get(g:, 'daps_builddir', getcwd() . '/build/')
   call s:DapsSetBuilddir(g:daps_builddir)
   if exists("g:daps_styleroot")
     call s:DapsSetStyleroot(g:daps_styleroot)
   endif
 
   " check if 'g:daps_auto_import_xmlids' exists and set default value
-  if !exists("g:daps_auto_import_xmlids")
-    let g:daps_auto_import_xmlids = 1
-  endif
+  let g:daps_auto_import_xmlids = get(g:, 'daps_auto_import_xmlids', 1)
 
   " check if 'g:daps_optipng_before_build' exists and set default value
   if !exists("g:daps_optipng_before_build")
@@ -253,7 +236,7 @@ endfunction
 " lists all DC files in the current directory
 function s:ListDCfiles(A,L,P)
   call s:dbg('# # # # # ' . expand('<sfile>') . ' # # # # #')
-  return system("ls -1 " . g:dcfile_glob_pattern . "*")
+  return system("ls -1 " . g:dcfile_glob_pattern)
 endfunction
 
 " lists XML dictionaries from vim-daps plugin
@@ -493,6 +476,8 @@ function ValidateQuickfix_cb(job, exit_status)
   call s:dbg('job -> ' . job)
   let term_buf_no = ch_getbufnr(job, 'out')
   call s:dbg('term_buf_no -> ' . term_buf_no)
+  " wait some time til terminal buffer synchronizes
+  call term_wait(term_buf_no, 150)
   " go thru the terminal output and find errors if any
   let result = getbufline(term_buf_no, 1, '$')
   " remove lines without ":"
@@ -668,9 +653,12 @@ function BuildTarget_cb(job, exit_status)
   let job = a:job
   call s:dbg('job -> ' . job)
   let term_buf_no = ch_getbufnr(job, 'out')
+  " wait some time til terminal buffer synchronizes
+  call term_wait(term_buf_no, 150)
   call s:dbg('term_buf_no -> ' . term_buf_no)
   " read the last line of the terminal
-  let target_dir = getbufline(term_buf_no, '$')[0]
+  let target_dir = getbufoneline(term_buf_no, '$')
+  "  let target_dir = getbufline(term_buf_no, '$')[0]
   call s:dbg('term_last_line -> ' . target_dir)
   if s:DapsBuildTarget == 'html'
     let target_file = target_dir . 'index.html'
@@ -800,7 +788,6 @@ function s:DapsSetStyleroot(styleroot)
     echoerr a:styleroot . ' is not a directory'
   endif
 endfunction
-
 
 " - - - - - - - - - - - - -  e n d  f u n c t i o n s   - - - - - - - - - - - - "
 
