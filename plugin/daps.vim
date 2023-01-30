@@ -625,14 +625,13 @@ function s:DapsBuild(target)
     let rootid = matchstr(getline("."), '\c xml:id=\([''"]\)\zs.\{-}\ze\1')
     if !empty(rootid)
       " --rootid is limited to the following elements
-      let rootids = ['appendix', 'article', 'bibliography', 'book', 'chapter', 'glossary',
-            \ 'index', 'part', 'preface', 'sect1', 'section']
+      let rootids = ['appendix', 'article', 'bibliography', 'book', 'chapter',
+            \ 'colophon', 'dedication', 'glossary', 'index', 'part', 'preface',
+            \ 'refentry', 'reference', 'set', 'setindex']
       let element = matchstr(getline("."), '<\w\+')
       if match(rootids, element[1:]) == -1
         let rootid = ''
       endif
-    else
-      let rootid = matchstr(join(getline(1,'$')), '\c xml:id=\([''"]\)\zs.\{-}\ze\1')
     endif
     call s:dbg('rootid -> ' . rootid)
     " assemble daps cmdline
@@ -640,7 +639,14 @@ function s:DapsBuild(target)
     if exists('b:styleroot')
       let dapscmd .= ' --styleroot=' . b:styleroot
     endif
-    let dapscmd .= ' --builddir=' . b:builddir . ' ' . a:target . ' --rootid=' . rootid . ' 2> /dev/null'
+    if exists('b:builddir')
+      let dapscmd .= ' --builddir=' . b:builddir
+    endif
+    let dapscmd .= ' ' . a:target
+    if !empty(rootid)
+      let dapscmd .= ' --rootid=' . rootid
+    endif
+    let dapscmd .= ' 2> /dev/null'
     call s:dbg('dapscmd -> ' . dapscmd)
     " run dapscmd in a terminal window
     let term_buf_no = s:RunCmdTerm(dapscmd, 'daps', 'BuildTarget_cb')
