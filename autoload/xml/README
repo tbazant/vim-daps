@@ -1,0 +1,1 @@
+rng2vim.pl -x /usr/share/xml/geekodoc/rng/geekodoc5-flat.rng geekodoc5
