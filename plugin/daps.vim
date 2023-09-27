@@ -19,6 +19,14 @@ let s:plugindir = resolve(expand('<sfile>:p:h:h'))
 " read g:daps_* variables from .vimrc and set defaults
 autocmd FileType docbk :call s:Init()
 
+" define actions triggered by events
+augroup vim_daps
+  " clear exisitng autocommands in the group
+  autocmd!
+  " run style check on each saving the buffer
+  autocmd BufWritePost * call s:DapsStylecheck()
+augroup END
+
 " - - - - - - - - - - - - -  c o m m a n d   d e f i n i t i o n s   - - - - - - - - - - - - "
 " dummy command and function for testing purposes
 if !exists(":DapsDummy")
@@ -414,16 +422,16 @@ function s:DapsSetDoctype(...)
   call s:DapsImportEntities()
 endfunction
 
-" check if DC file was previously set via DapsSetDCfile()
+" get DC file
 function s:IsDCfileSet()
   call s:dbg('# # # # # ' . expand('<sfile>') . ' # # # # #')
-  if exists("b:dc_file")
+  if exists("b:dc_file") " first, look if DC file was set via DapsSetDCfile()
     return b:dc_file
-  elseif exists("g:daps_dc_file")
+  elseif exists("g:daps_dc_file") " if not, search (per project) .vimrc file
     let b:dc_file = g:daps_dc_file
     return b:dc_file
   else
-    return s:AskForDCFile()
+    return s:AskForDCFile() " otherwise ask for the DC file
   endif
 endfunction
 
@@ -499,58 +507,56 @@ endfunction
 " daps style check
 function s:DapsStylecheck()
   call s:dbg('# # # # # ' . expand('<sfile>') . ' # # # # #')
-  " check for 'sdsc' command
-  if !executable('sdsc')
-    echoe "Command 'sdsc' was not found"
+  " erase all signs and underlinings
+  call clearmatches()
+  execute 'sign unplace *'
+  " check for 'vale' binary
+  if !executable('vale')
+    echoe "Command 'vale' was not found"
     return 1
   endif
-  if !empty(s:IsDCfileSet())
-    " find out the location of the style result XML file
-    let cmd = b:dapscmd . ' -d ' . b:dc_file . ' stylecheck --file ' . expand('%')
-    call s:dbg('stylecheck cmd -> ' . cmd)
-    :silent let style_xml = system(cmd)
-    call s:dbg('style_xml -> ' . style_xml)
-    let cmd = 'xsltproc ' . s:plugindir . '/tools/vim_stylecheck.xsl ' . style_xml
-    call s:dbg('xsltproc style cmd -> ' . cmd)
-    :silent let style_result = systemlist(cmd)
-    call s:dbg('Num of style results -> ' . len(style_result))
-    if !empty(style_result)
-      " define signs
-      sign define error text=E
-      sign define warning text=W
-      sign define fatal text=F
-      let qflist = []
-      let id = 1
-      for line in style_result
-        let sl = split(line, '::')
-        " remove this after Stefan removes the first useless line of output
-        if len(sl) > 3
-          " filter out unwanted message types
-          if !empty(g:daps_stylecheck_show)
-            if g:daps_stylecheck_show != sl[2]
-              continue
-            endif
-          endif
-          let filename = expand('xml/' . sl[0])
-          " remove this once Stefan fixes the line numbering
-          let lnum = sl[1] + 6
-          call add(qflist, {
-                \ 'filename': filename,
-                \ 'lnum': lnum,
-                \ 'type': sl[2],
-                \ 'text': sl[4],
-                \})
-          execute 'sign place ' . id . ' line=' . lnum . ' name=' . sl[2] . ' file=' . filename
-          let id += 1
-        endif
-      endfor
-      call setqflist(qflist)
-      execute 'copen'
-    else
-      execute 'cclose'
-      execute 'sign unplace *'
-      echom 'No style mistakes found'
-    endif
+  " remember current path, find the path of the active file and cd to that dir
+  let cwd = getcwd()
+  let current_file_dir = expand('%:h')
+  exe "lcd " . current_file_dir
+  let current_file_path = expand('%:t')
+  " compile vale command and run it
+  let vale_cmd = "vale --output " . s:plugindir . "/tools/vale_template --no-wrap --config " . s:plugindir . "/.vale.ini " . current_file_path
+  call s:dbg('vale_cmd -> ' . vale_cmd)
+  silent let output = systemlist(vale_cmd)
+  " remove empty lines from the output
+  call filter(output, 'v:val != ""')
+  call s:dbg('output -> ' . string(output))
+  " sort the output so that ERRORS are first and SUGGESTIONS last
+  let sorted_output = sort(output, 'CompareStylePriority')
+  call s:dbg('output -> ' . string(sorted_output))
+  " cd back to cwd
+  exe "lcd " . cwd
+  " define signs for quickfix list
+  let qflist = []
+  let id = 1
+  sign define error text=E
+  sign define warning text=W
+  sign define suggestion text=S
+  if len(sorted_output) > 0
+    for line in sorted_output
+      call s:dbg('line -> ' . string(line))
+      if !empty(line)
+        " get the line array
+        let la = split(trim(line), ':')
+        let item = { 'bufnr': bufnr('%'), 'lnum': la[1], 'col': la[2], 'type': la[3], 'text': la[5] }
+        call add (qflist, item)
+        execute 'sign place ' . id . ' line=' . la[1] . ' name=' . la[3] . ' file=' . bufname('%')
+        call matchadd('Underlined', '\%' . la[1] . 'l\%' . la[2] . 'c\k\+')
+        let id += 1
+      endif
+    endfor
+    call setqflist(qflist)
+    execute 'copen'
+  else
+    execute 'cclose'
+    execute 'sign unplace *'
+    echow 'No style mistakes found'
   endif
 endfunction
 
@@ -792,6 +798,28 @@ function s:DapsSetStyleroot(styleroot)
   else
     echoerr a:styleroot . ' is not a directory'
   endif
+endfunction
+
+" compares priority of style check results
+function CompareStylePriority(a, b)
+  call s:dbg('# # # # # ' . expand('<sfile>') . ' # # # # #')
+  let a_priority = -1
+  let b_priority = -1
+  if a:a =~# 'error'
+    let a_priority = 0
+  elseif a:a =~# 'warning'
+    let a_priority = 1
+  elseif a:a =~# 'suggestion'
+    let a_priority = 2
+  endif
+  if a:b =~# 'error'
+    let b_priority = 0
+  elseif a:b =~# 'warning'
+    let b_priority = 1
+  elseif a:b =~# 'suggestion'
+    let b_priority = 2
+  endif
+  return (a_priority - b_priority)
 endfunction
 
 " - - - - - - - - - - - - -  e n d  f u n c t i o n s   - - - - - - - - - - - - "
