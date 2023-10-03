@@ -58,17 +58,14 @@ if !exists(":DapsValidateFile")
   command -nargs=0 DapsValidateFile :call s:DapsValidateFile(<f-args>)
 endif
 
-" daps style check
+" daps stylecheck
 if !exists(":DapsStylecheck")
   command -nargs=0 DapsStylecheck :call s:DapsStylecheck(<f-args>)
 endif
 
 " daps xmlformat
 if !exists(":DapsXmlFormat")
-  command -nargs=0 -range=% DapsXmlFormat
-        \ let b:pos = winsaveview() |
-        \ <line1>,<line2>call s:DapsXmlFormat(<f-args>) |
-        \ call winrestview(b:pos)
+  command -nargs=0 DapsXmlFormat call s:DapsXmlFormat(<f-args>)
 endif
 
 " daps html
@@ -125,19 +122,19 @@ function s:Init()
         \}
 
   " check if g:daps_debug is set
-  if !exists("b:debug")
+  if !exists("b:daps_debug")
     if exists("g:daps_debug")
-      let b:debug = g:daps_debug
+      let b:daps_debug = g:daps_debug
     else
-      let b:debug = 0
+      let b:daps_debug = 0
     endif
   endif
 
   " check if g:daps_log_file is set
-  if !exists("b:log_file")
+  if !exists("b:daps_log_file")
     if exists("g:daps_log_file")
       if(writefile(["Start of a new round", "********************"], g:daps_log_file, 'a') == 0)
-        let b:log_file = g:daps_log_file
+        let b:daps_log_file = g:daps_log_file
       else
         echoe g:daps_log_file . ' is not writable'
       endif
@@ -145,33 +142,23 @@ function s:Init()
   endif
 
   " determine daps root and daps cmd
-  if !exists("b:dapsroot")
+  if !exists("b:daps_dapsroot")
     if !exists("g:daps_dapsroot")
-      let b:dapsroot = '/usr/share/daps'
-      let b:dapscmd = '/usr/bin/daps'
-      let b:dapscfgdir = '/etc/daps/'
+      let b:daps_dapsroot = '/usr/share/daps'
+      let b:daps_dapscmd = '/usr/bin/daps'
+      let b:daps_dapscfgdir = '/etc/daps/'
     else
-      let b:dapsroot = g:daps_dapsroot
-      let b:dapscmd = b:dapsroot . '/bin/daps --dapsroot=' . b:dapsroot
-      let b:dapscfgdir = b:dapsroot . '/etc/'
+      let b:daps_dapsroot = g:daps_dapsroot
+      let b:daps_dapscmd = b:daps_dapsroot . '/bin/daps --dapsroot=' . b:dapsroot
+      let b:daps_dapscfgdir = b:daps_dapsroot . '/etc/'
     endif
-    call s:dbg('dapsroot -> ' . b:dapsroot)
-    call s:dbg('dapscmd -> ' . b:dapscmd)
-    call s:dbg('dapscfgdir -> ' . b:dapscfgdir)
-  endif
-
-  " decide whether ask for DC file on startup and do so if yes
-  if exists("g:daps_dcfile_autostart")
-    let b:dcfile_autostart = g:daps_dcfile_autostart
-  else
-    let b:dcfile_autostart = 0
-  endif
-  if b:dcfile_autostart == 1
-    autocmd BufReadPost,FileType docbk call s:AskForDCFile()
+    call s:dbg('dapsroot -> ' . b:daps_dapsroot)
+    call s:dbg('dapscmd -> ' . b:daps_dapscmd)
+    call s:dbg('dapscfgdir -> ' . b:daps_dapscfgdir)
   endif
 
   " set default pattern for DC file completion
-  let g:daps_dcfile_glob_pattern = get(g:, 'daps_dcfile_glob_pattern', "")
+  let g:daps_dcfile_glob_pattern = get(g:, 'daps_dcfile_glob_pattern', "DC-*")
 
   " set default pattern for entity file completion
   let g:daps_entfile_glob_pattern = get(g:, 'daps_entfile_glob_pattern', "*")
@@ -209,8 +196,8 @@ function s:Init()
 
 
   " decide whether run entity, set doctype, and import on new file open
-  let b:entity_import_autostart = get(g:, 'daps_entity_import_autostart', 0)
-  if b:entity_import_autostart == 1
+  let b:daps_entity_import_autostart = get(g:, 'daps_entity_import_autostart', 0)
+  if b:daps_entity_import_autostart == 1
     autocmd BufReadPost,FileType docbk call s:DapsImportEntities()
   endif
 
@@ -230,17 +217,17 @@ function s:Init()
   endif
 
   " check for xmlformat options
-  let b:xmlformat_script = get(g:, 'daps_xmlformat_script', 'xmlformat.pl')
+  let b:daps_xmlformat_script = get(g:, 'daps_xmlformat_script', 'xmlformat.pl')
 
   " check for xmlformat config file
-  let b:xmlformat_conf = get(g:, 'daps_xmlformat_conf', b:dapscfgdir . 'docbook-xmlformat.conf')
+  let b:daps_xmlformat_conf = get(g:, 'daps_xmlformat_conf', b:daps_dapscfgdir . 'docbook-xmlformat.conf')
 endfunction
 
 function s:dbg(msg)
-  if b:debug == 1
+  if b:daps_debug == 1
     let msg = "DEBUG: " . a:msg
-    if exists("b:log_file")
-      call writefile([msg], b:log_file, 'a')
+    if exists("b:daps_log_file")
+      call writefile([msg], b:daps_log_file, 'a')
     else
       echo msg
     endif
@@ -250,7 +237,7 @@ endfunction
 " lists all DC files in the current directory
 function s:ListDCfiles(A,L,P)
   call s:dbg('# # # # # ' . expand('<sfile>') . ' # # # # #')
-  return system("ls -1 " . g:dcfile_glob_pattern)
+  return system("ls -1 " . g:daps_dcfile_glob_pattern)
 endfunction
 
 " lists XML dictionaries from vim-daps plugin
@@ -267,7 +254,7 @@ endfunction
 " list all <xref>s' IDs from the current buffer
 function s:ListXrefTargets(A,L,P)
   call s:dbg('# # # # # ' . expand('<sfile>') . ' # # # # #')
-  let cmd = 'xsltproc ' . b:dapsroot . '/tools/get-all-xrefsids.xsl ' . expand('%') . ' | sort -u'
+  let cmd = 'xsltproc ' . b:daps_dapsroot . '/tools/get-all-xrefsids.xsl ' . expand('%') . ' | sort -u'
   return system(cmd)
 endfunction
 
@@ -278,7 +265,7 @@ function s:DapsImportXmlIds()
     " grep MAIN file out of the DC-file
     let main_file = matchstr(system('grep "^\s*MAIN=" ' . b:dc_file), '"\zs[^"]\+\ze"')
     call s:dbg('main file -> ' . main_file)
-    let xsltproc_cmd = 'xsltproc --xinclude ' . b:dapsroot . '/daps-xslt/common/get-all-xmlids.xsl xml/' . main_file
+    let xsltproc_cmd = 'xsltproc --xinclude ' . b:daps_dapsroot . '/daps-xslt/common/get-all-xmlids.xsl xml/' . main_file
     call s:dbg('xsltproc_cmd -> ' . xsltproc_cmd)
     let g:xmldata_{b:doctype}.xref[1].linkend = sort(systemlist(xsltproc_cmd))
   endif
@@ -288,7 +275,7 @@ endfunction
 function s:AskForDCFile()
   call s:dbg('# # # # # ' . expand('<sfile>') . ' # # # # #')
   call inputsave()
-  let dc_file = input("Enter DC file: ", g:dcfile_glob_pattern, "file")
+  let dc_file = input("Enter DC file: ", g:daps_dcfile_glob_pattern, "file")
   call inputrestore()
   redrawstatus
   return s:DapsSetDCfile(dc_file)
@@ -336,7 +323,7 @@ function s:DapsOpenTarget(...)
   endif
   if !empty(rootid)
     if !empty(s:IsDCfileSet())
-      let file_cmd = b:dapscmd . ' -d ' . b:dc_file . ' list-file --rootid=' . rootid . ' 2> /dev/null'
+      let file_cmd = b:daps_dapscmd . ' -d ' . b:dc_file . ' list-file --rootid=' . rootid . ' 2> /dev/null'
       call s:dbg('file_cmd => ' . file_cmd)
       let file = systemlist(file_cmd)[0]
       if filereadable(file)
@@ -354,7 +341,7 @@ endfunction
 function s:ListXmlIds(A,L,P)
   call s:dbg('# # # # # ' . expand('<sfile>') . ' # # # # #')
   " get list of XML IDs in the current file
-  let xmlids = system('xsltproc ' . b:dapsroot . '/daps-xslt/common/get-all-xmlids.xsl ' . expand('%'))
+  let xmlids = system('xsltproc ' . b:daps_dapsroot . '/daps-xslt/common/get-all-xmlids.xsl ' . expand('%'))
   call s:dbg('Num of XML IDs -> ' . len(xmlids))
   return xmlids
 endfunction
@@ -378,7 +365,7 @@ function s:DapsOpenReferers(...)
 
   if !empty(s:IsDCfileSet())
     " get list of XML files for a given DC file
-    let cmd = b:dapscmd . " -d " . b:dc_file . " list-srcfiles --xmlonly"
+    let cmd = b:daps_dapscmd . " -d " . b:dc_file . " list-srcfiles --xmlonly"
     call s:dbg("ListXMLfiles cmd -> " . cmd)
     let files = join(systemlist(cmd), ' ')
     call s:dbg("Num of XML files -> " . len(split(files, '\s')))
@@ -431,13 +418,16 @@ endfunction
 " get DC file
 function s:IsDCfileSet()
   call s:dbg('# # # # # ' . expand('<sfile>') . ' # # # # #')
-  if exists("b:dc_file") " first, look if DC file was set via DapsSetDCfile()
+  if exists("b:dc_file")
+    call s:dbg('DC file was set with DapsSetDCfile() -> ' . b:dc_file)
     return b:dc_file
-  elseif exists("g:daps_dc_file") " if not, search (per project) .vimrc file
+  elseif exists("g:daps_dc_file")
     let b:dc_file = g:daps_dc_file
+    call s:dbg('DC file was set in (per project) .vimrc -> ' . b:dc_file)
     return b:dc_file
   else
-    return s:AskForDCFile() " otherwise ask for the DC file
+    call s:dbg('Asking the user for DC file')
+    return s:AskForDCFile()
   endif
 endfunction
 
@@ -472,7 +462,7 @@ function s:DapsValidate()
     if g:daps_auto_validate_file == 1 && s:DapsValidateFile() == 1
       return 1
     endif
-    let validate_cmd = b:dapscmd . ' -vv -d ' . b:dc_file
+    let validate_cmd = b:daps_dapscmd . ' -vv -d ' . b:dc_file
     if exists('b:styleroot')
       let validate_cmd .= ' --styleroot=' . b:styleroot
     endif
@@ -628,7 +618,7 @@ function s:DapsValidateFile()
   endif
 endfunction
 
-" builds the current chapter or --rootid
+" builds the current chapter
 function s:DapsBuild(target)
   call s:dbg('# # # # # ' . expand('<sfile>') . ' # # # # #')
   if !empty(s:IsDCfileSet())
@@ -636,7 +626,7 @@ function s:DapsBuild(target)
     let s:DapsBuildTarget = a:target
     call s:dbg('DapsBuildTarget -> ' . s:DapsBuildTarget)
     " assemble daps cmdline
-    let dapscmd = b:dapscmd . ' -vv -d ' . b:dc_file
+    let dapscmd = b:daps_dapscmd . ' -vv -d ' . b:dc_file
     if exists('b:styleroot')
       let dapscmd .= ' --styleroot=' . b:styleroot
     endif
@@ -679,27 +669,28 @@ function BuildTarget_cb(job, exit_status)
   call job_start(cmd)
 endfunction
 
-" formats the XML source
-function s:DapsXmlFormat() range
+" formats the XML source of the active buffer
+function s:DapsXmlFormat()
   call s:dbg('# # # # # ' . expand('<sfile>') . ' # # # # #')
-  " check if the current buffer is valid
-  if s:DapsValidateFile() == 0
-    call s:dbg('range a:firstline -> ' . a:firstline)
-    call s:dbg('range a:lastline -> ' . a:lastline)
-    let indent_size = indent(a:firstline) / shiftwidth()
-    call s:dbg('indent_size -> ' . indent_size)
-    let cmd = '!' . b:xmlformat_script . ' -f ' . b:xmlformat_conf
-    call s:dbg('xmlformat command -> ' . cmd)
-    silent execute(a:firstline.','.a:lastline.cmd)
-    if a:firstline > 1 && a:lastline < line('$')
-      " re-indent the visual block
-      let repeat = repeat(">", indent_size)
-      call s:dbg('indent cmd -> ' . repeat)
-      " a:lastline is probably not valid anymore after re-formatting, need
-      " matchit's % to mark the vusual block correctly
-      silent execute("normal lV%" . indent_size . ">")
+  let buffer_content = getline(1, '$')
+  let xml_format_cmd = b:daps_xmlformat_script . ' -f ' . b:daps_xmlformat_conf
+  call s:dbg('xmlformat cmd -> ' . xml_format_cmd)
+  try
+    " Save the current cursor position
+    let save_cursor = getpos(".")
+    let command_output = systemlist(xml_format_cmd, buffer_content)
+    if strpart(command_output[0],0,5) == 'Error'
+      throw 'XML document is invalid'
     endif
-  endif
+    silent %delete
+    " put the formatted buffer at zeroth line
+    silent :0put =command_output
+    " Restore the cursor position
+    call setpos('.', save_cursor)
+    echo 'XML document formatted'
+  catch
+    echo "An error occurred: " . v:exception
+  endtry
 endfunction
 
 " imports Entities from a file to a DTD file
@@ -713,7 +704,7 @@ function s:DapsImportEntities(...)
       return
     endif
     " no arg given, try daps' getentityname.py
-    let getentityname = b:dapsroot . '/libexec/getentityname.py'
+    let getentityname = b:daps_dapsroot . '/libexec/getentityname.py'
     call s:dbg('getentityname -> ' . getentityname)
     let ent_str = substitute(system(getentityname . ' ' . expand('%:p')), '\n\+$', '', '')
     call s:dbg('ent_str -> ' . ent_str)
