@@ -171,10 +171,16 @@ function s:Init()
   endif
 
   " set default pattern for DC file completion
-  let g:dcfile_glob_pattern = get(g:, 'daps_dcfile_glob_pattern', "")
+  let g:daps_dcfile_glob_pattern = get(g:, 'daps_dcfile_glob_pattern', "")
 
   " set default pattern for entity file completion
-  let g:entfile_glob_pattern = get(g:, 'daps_entfile_glob_pattern', "*")
+  let g:daps_entfile_glob_pattern = get(g:, 'daps_entfile_glob_pattern', "*")
+
+  " set default value for stylecheck after save
+  let g:daps_stylecheck_on_save = get(g:, 'daps_stylecheck_on_save', 0)
+
+  " set default value for opening qf window after stylecheck
+  let g:daps_stylecheck_qfwindow = get(g:, 'daps_stylecheck_qfwindow', 1)
 
   " decide whether run :DapsValidateFile before :DapsValidate
   if empty("g:daps_auto_validate_file")
@@ -552,7 +558,9 @@ function s:DapsStylecheck()
       endif
     endfor
     call setqflist(qflist)
-    execute 'copen'
+    if g:daps_stylecheck_qfwindow == 1
+      execute 'copen'
+    endif
   else
     execute 'cclose'
     execute 'sign unplace *'

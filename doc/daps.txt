@@ -134,3 +134,11 @@ g:daps_xmlformat_script = <path_to_script>
 g:daps_xmlformat_conf = <path_to_conffile>
   The file name of the configuration file for 'xmlformat'. Defaults to
   the one provided by daps.
+
+g:daps_stylecheck_on_save = 0 or 1
+  Whether to check the style of the document each time it is saved. Dafaults to
+  not check the document on save.
+
+g:daps_stylecheck_qfwindow = 0 or 1
+  Whether to open a quick fix window on style check. By default, both quick fix
+  window is opened and the signs are placed in the document.
