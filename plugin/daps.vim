@@ -635,19 +635,6 @@ function s:DapsBuild(target)
     " save the build target across buffers
     let s:DapsBuildTarget = a:target
     call s:dbg('DapsBuildTarget -> ' . s:DapsBuildTarget)
-    " check if cursor is on 'id=""' line and use a --rootid
-    let rootid = matchstr(getline("."), '\c xml:id=\([''"]\)\zs.\{-}\ze\1')
-    if !empty(rootid)
-      " --rootid is limited to the following elements
-      let rootids = ['appendix', 'article', 'bibliography', 'book', 'chapter',
-            \ 'colophon', 'dedication', 'glossary', 'index', 'part', 'preface',
-            \ 'refentry', 'reference', 'set', 'setindex']
-      let element = matchstr(getline("."), '<\w\+')
-      if match(rootids, element[1:]) == -1
-        let rootid = ''
-      endif
-    endif
-    call s:dbg('rootid -> ' . rootid)
     " assemble daps cmdline
     let dapscmd = b:dapscmd . ' -vv -d ' . b:dc_file
     if exists('b:styleroot')
@@ -657,9 +644,6 @@ function s:DapsBuild(target)
       let dapscmd .= ' --builddir=' . b:builddir
     endif
     let dapscmd .= ' ' . a:target
-    if !empty(rootid)
-      let dapscmd .= ' --rootid=' . rootid
-    endif
     let dapscmd .= ' 2> /dev/null'
     call s:dbg('dapscmd -> ' . dapscmd)
     " run dapscmd in a terminal window
