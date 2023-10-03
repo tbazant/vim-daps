@@ -24,7 +24,7 @@ augroup vim_daps
   " clear exisitng autocommands in the group
   autocmd!
   " run style check on each saving the buffer
-  autocmd BufWritePost * call s:DapsStylecheck()
+  autocmd BufWritePost *.xml call s:DapsStylecheck()
 augroup END
 
 " - - - - - - - - - - - - -  c o m m a n d   d e f i n i t i o n s   - - - - - - - - - - - - "
