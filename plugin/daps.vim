@@ -505,6 +505,7 @@ function s:DapsStylecheck()
   call s:dbg('# # # # # ' . expand('<sfile>') . ' # # # # #')
   " erase all signs and underlinings
   call clearmatches()
+  execute 'cclose'
   execute 'sign unplace *'
   " check for 'vale' binary
   if !executable('vale')
@@ -672,25 +673,26 @@ endfunction
 " formats the XML source of the active buffer
 function s:DapsXmlFormat()
   call s:dbg('# # # # # ' . expand('<sfile>') . ' # # # # #')
+  let buffer_directory = expand('%:p:h')
+  call s:dbg('buffer_directory -> ' . buffer_directory)
   let buffer_content = getline(1, '$')
-  let xml_format_cmd = b:daps_xmlformat_script . ' -f ' . b:daps_xmlformat_conf
-  call s:dbg('xmlformat cmd -> ' . xml_format_cmd)
-  try
+  call s:dbg('buffer_content length -> ' . len(buffer_content))
+  " check if the XML file is well-formed
+  if s:IsXmlWellFormed(buffer_content, buffer_directory)
+    let xml_format_cmd = b:daps_xmlformat_script . ' -f ' . b:daps_xmlformat_conf
+    call s:dbg('xmlformat cmd -> ' . xml_format_cmd)
     " Save the current cursor position
     let save_cursor = getpos(".")
     let command_output = systemlist(xml_format_cmd, buffer_content)
-    if strpart(command_output[0],0,5) == 'Error'
-      throw 'XML document is invalid'
-    endif
     silent %delete
     " put the formatted buffer at zeroth line
     silent :0put =command_output
     " Restore the cursor position
     call setpos('.', save_cursor)
     echo 'XML document formatted'
-  catch
-    echo "An error occurred: " . v:exception
-  endtry
+  else
+    echo 'XML document is not well-formed'
+  endif
 endfunction
 
 " imports Entities from a file to a DTD file
@@ -784,7 +786,7 @@ function s:DapsSetStyleroot(styleroot)
 endfunction
 
 " compares priority of style check results
-function CompareStylePriority(a, b)
+function s:CompareStylePriority(a, b)
   call s:dbg('# # # # # ' . expand('<sfile>') . ' # # # # #')
   let a_priority = -1
   let b_priority = -1
@@ -803,6 +805,45 @@ function CompareStylePriority(a, b)
     let b_priority = 2
   endif
   return (a_priority - b_priority)
+endfunction
+
+function s:IsXmlWellFormed(xml_content, xml_dir)
+  call s:dbg('# # # # # ' . expand('<sfile>') . ' # # # # #')
+  " clear all error windows and signs
+  execute 'cclose'
+  call clearmatches()
+  execute 'sign unplace *'
+  " run xmllint and check the well-formedness
+  let cmd = 'xmllint --noout --noent 2>&1 -'
+  if !empty(a:xml_dir)
+    execute 'cd ' . a:xml_dir
+  endif
+  let result = systemlist(cmd, a:xml_content)
+  cd -
+  " Check the result and return a boolean value
+  if v:shell_error == 0
+    return 1
+  else
+    " define signs for quickfix list
+    let qflist = []
+    let id = 1
+    sign define error text=E
+    for line in result
+      if (strpart(line,0,1) == '-')
+        " get the line array
+        let la = split(trim(line), ':')
+        let item = { 'bufnr': bufnr('%'), 'lnum': la[1], 'type': 'error', 'text': la[3] }
+        call add (qflist, item)
+        let sign_cmd = 'sign place ' . id . ' line=' . la[1] . ' name=error file=' . bufname('%')
+        call s:dbg('sign_cmd -> ' . sign_cmd)
+        execute sign_cmd
+        let id += 1
+      endif
+    endfor
+    call setqflist(qflist)
+    execute 'copen'
+    return 0
+  endif
 endfunction
 
 " - - - - - - - - - - - - -  e n d  f u n c t i o n s   - - - - - - - - - - - - "
