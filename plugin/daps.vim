@@ -78,6 +78,11 @@ if !exists(":DapsPdf")
   command -nargs=0 DapsPdf :call s:DapsBuild('pdf')
 endif
 
+" daps -m xml_file html --single --norefcheck
+if !exists(":DapsBuildXmlFile")
+  command -nargs=? DapsBuildXmlFile :call s:DapsBuildXmlFile(<f-args>)
+endif
+
 " daps list-file
 if !exists(":DapsOpenTarget")
   command -nargs=? -complete=custom,s:ListXrefTargets DapsOpenTarget :call s:DapsOpenTarget(<f-args>)
@@ -89,8 +94,8 @@ if !exists(":DapsOpenReferers")
 endif
 
 " --builddir
-if !exists(":DapsSetBuilddir")
-  command -nargs=1 -complete=file DapsSetBuilddir :call s:DapsSetBuilddir(<f-args>)
+if !exists(":DapsSetBuildDir")
+  command -nargs=1 -complete=file DapsSetBuildDir :call s:DapsSetBuildDir(<f-args>)
 endif
 " --styleroot
 if !exists(":DapsSetStyleroot")
@@ -203,7 +208,7 @@ function s:Init()
 
   " check if 'g:daps_builddir' exists and trigger setting it in current buffer
   let g:daps_builddir = get(g:, 'daps_builddir', getcwd() . '/build/')
-  call s:DapsSetBuilddir(g:daps_builddir)
+  call s:DapsSetBuildDir(g:daps_builddir)
   if exists("g:daps_styleroot")
     call s:DapsSetStyleroot(g:daps_styleroot)
   endif
@@ -512,50 +517,55 @@ function s:DapsStylecheck()
     echoe "Command 'vale' was not found"
     return 1
   endif
-  " remember current path, find the path of the active file and cd to that dir
-  let cwd = getcwd()
-  let current_file_dir = expand('%:h')
-  exe "lcd " . current_file_dir
-  let current_file_path = expand('%:t')
-  " compile vale command and run it
-  let vale_cmd = "vale --output " . s:plugindir . "/tools/vale_template --no-wrap --config " . s:plugindir . "/.vale.ini " . current_file_path
-  call s:dbg('vale_cmd -> ' . vale_cmd)
-  silent let output = systemlist(vale_cmd)
-  " remove empty lines from the output
-  call filter(output, 'v:val != ""')
-  call s:dbg('output -> ' . string(output))
-  " sort the output so that ERRORS are first and SUGGESTIONS last
-  let sorted_output = sort(output, 'CompareStylePriority')
-  call s:dbg('output -> ' . string(sorted_output))
-  " cd back to cwd
-  exe "lcd " . cwd
-  " define signs for quickfix list
-  let qflist = []
-  let id = 1
-  sign define error text=E
-  sign define warning text=W
-  sign define suggestion text=S
-  if len(sorted_output) > 0
-    for line in sorted_output
-      call s:dbg('line -> ' . string(line))
-      if !empty(line)
-        " get the line array
-        let la = split(trim(line), ':')
-        let item = { 'bufnr': bufnr('%'), 'lnum': la[1], 'col': la[2], 'type': la[3], 'text': la[5] }
-        call add (qflist, item)
-        execute 'sign place ' . id . ' line=' . la[1] . ' name=' . la[3] . ' file=' . bufname('%')
-        call matchadd('Underlined', '\%' . la[1] . 'l\%' . la[2] . 'c\k\+')
-        let id += 1
+  "save the current  buffer to disk
+  write
+  if s:IsXmlWellFormed(expand('%'))
+    " remember current path, find the path of the active file and cd to that dir
+    let cwd = getcwd()
+    let current_file_dir = expand('%:h')
+    exe "lcd " . current_file_dir
+    let current_file_path = expand('%:t')
+    " compile vale command and run it
+    let vale_cmd = "vale --output " . s:plugindir . "/tools/vale_template --no-wrap --config " . s:plugindir . "/.vale.ini " . current_file_path
+    call s:dbg('vale_cmd -> ' . vale_cmd)
+    silent let output = systemlist(vale_cmd)
+    " remove empty lines from the output
+    call filter(output, 'v:val != ""')
+    " sort the output so that ERRORS are first and SUGGESTIONS last
+    let sorted_output = sort(output, 'CompareStylePriority')
+    call s:dbg('output -> ' . string(sorted_output))
+    " cd back to cwd
+    exe "lcd " . cwd
+    " define signs for quickfix list
+    let qflist = []
+    let id = 1
+    sign define error text=E
+    sign define warning text=W
+    sign define suggestion text=S
+    if len(sorted_output) > 0
+      for line in sorted_output
+        call s:dbg('line -> ' . string(line))
+        if !empty(line)
+          " get the line array
+          let la = split(trim(line), ':')
+          let item = { 'bufnr': bufnr('%'), 'lnum': la[1], 'col': la[2], 'type': la[3], 'text': la[5] }
+          call add (qflist, item)
+          execute 'sign place ' . id . ' line=' . la[1] . ' name=' . la[3] . ' file=' . bufname('%')
+          call matchadd('Underlined', '\%' . la[1] . 'l\%' . la[2] . 'c\k\+')
+          let id += 1
+        endif
+      endfor
+      call setqflist(qflist)
+      if g:daps_stylecheck_qfwindow == 1
+        execute 'copen'
       endif
-    endfor
-    call setqflist(qflist)
-    if g:daps_stylecheck_qfwindow == 1
-      execute 'copen'
+    else
+      execute 'cclose'
+      execute 'sign unplace *'
+      echow 'No style mistakes found'
     endif
   else
-    execute 'cclose'
-    execute 'sign unplace *'
-    echow 'No style mistakes found'
+    silent echo 'XML document is not well-formed'
   endif
 endfunction
 
@@ -640,7 +650,25 @@ function s:DapsBuild(target)
     " run dapscmd in a terminal window
     let term_buf_no = s:RunCmdTerm(dapscmd, 'daps', 'BuildTarget_cb')
   endif
-endfunc
+endfunction
+
+" builds HTML from the specified XML file (or the current buffer's file by
+" default)
+function s:DapsBuildXmlFile()
+  call s:dbg('# # # # # ' . expand('<sfile>') . ' # # # # #')
+  let xml_file = expand('%')
+  " save the active buffer to disk
+  silent write
+  " check if the XML file is well-formed
+  if s:IsXmlWellFormed(xml_file)
+    let cmd = 'daps -m ' . xml_file . ' html --single --norefcheck'
+    call s:dbg('cmd -> ' . cmd)
+    let s:DapsBuildTarget = 'html'
+    let term_buf_no = s:RunCmdTerm(cmd, 'daps', 'BuildTarget_cb')
+  else
+    silent echo 'XML document is not well-formed'
+  endif
+endfunction
 
 " callback to run build inside a trminal winow
 function BuildTarget_cb(job, exit_status)
@@ -689,9 +717,8 @@ function s:DapsXmlFormat()
     silent :0put =command_output
     " Restore the cursor position
     call setpos('.', save_cursor)
-    echo 'XML document formatted'
   else
-    echo 'XML document is not well-formed'
+    silent echo 'XML document is not well-formed'
   endif
 endfunction
 
@@ -762,7 +789,7 @@ function s:DapsLookupSchemasXML()
 endfunction
 
 " set --buildroot for the current buffer
-function s:DapsSetBuilddir(builddir)
+function s:DapsSetBuildDir(builddir)
   call s:dbg('# # # # # ' . expand('<sfile>') . ' # # # # #')
   " check if builddir exists and if it is a writable directory
   if filewritable(a:builddir) == 2
@@ -807,31 +834,33 @@ function s:CompareStylePriority(a, b)
   return (a_priority - b_priority)
 endfunction
 
-function s:IsXmlWellFormed(xml_content, xml_dir)
+function s:IsXmlWellFormed(xml_file)
   call s:dbg('# # # # # ' . expand('<sfile>') . ' # # # # #')
   " clear all error windows and signs
   execute 'cclose'
   call clearmatches()
   execute 'sign unplace *'
+  call s:dbg('xml_file -> ' . a:xml_file)
   " run xmllint and check the well-formedness
-  let cmd = 'xmllint --noout --noent 2>&1 -'
-  if !empty(a:xml_dir)
-    execute 'cd ' . a:xml_dir
-  endif
-  let result = systemlist(cmd, a:xml_content)
-  cd -
+  let cmd = 'xmllint --noout --noent ' . a:xml_file . ' 2>&1'
+  call s:dbg('cmd -> ' . cmd)
+  let result = systemlist(cmd)
+  call s:dbg('result length -> ' . len(result))
+  call s:dbg('result -> ' . string(result))
   " Check the result and return a boolean value
   if v:shell_error == 0
+    call s:dbg('file is well-formed')
     return 1
   else
+    call s:dbg('file is NOT well-formed')
     " define signs for quickfix list
     let qflist = []
     let id = 1
     sign define error text=E
     for line in result
-      if (strpart(line,0,1) == '-')
-        " get the line array
-        let la = split(trim(line), ':')
+      " get the line array
+      let la = split(trim(line), ':')
+      if la[0] == expand('%')
         let item = { 'bufnr': bufnr('%'), 'lnum': la[1], 'type': 'error', 'text': la[3] }
         call add (qflist, item)
         let sign_cmd = 'sign place ' . id . ' line=' . la[1] . ' name=error file=' . bufname('%')

@@ -60,7 +60,7 @@ Commands:
   containing xml:id="<xml_id>" and you do not specify the XML ID on the
   command line, it is extracter from the current line instead.
 
-:DapsSetBuilddir <build_dir>
+:DapsSetBuildDir <build_dir>
   Set the target directory for the --builddir option. Each buffer can have
   its own build_dir.
 
