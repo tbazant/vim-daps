@@ -706,7 +706,7 @@ function s:DapsXmlFormat()
   let buffer_content = getline(1, '$')
   call s:dbg('buffer_content length -> ' . len(buffer_content))
   " check if the XML file is well-formed
-  if s:IsXmlWellFormed(buffer_content, buffer_directory)
+  if s:IsXmlWellFormed(expand('%'))
     let xml_format_cmd = b:daps_xmlformat_script . ' -f ' . b:daps_xmlformat_conf
     call s:dbg('xmlformat cmd -> ' . xml_format_cmd)
     " Save the current cursor position
