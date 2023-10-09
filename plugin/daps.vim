@@ -24,7 +24,7 @@ augroup vim_daps
   " clear exisitng autocommands in the group
   autocmd!
   " run style check on each saving the buffer
-  autocmd BufWritePost *.xml call s:DapsStylecheck()
+  "autocmd BufWritePost *.xml call s:DapsStylecheck()
 augroup END
 
 " - - - - - - - - - - - - -  c o m m a n d   d e f i n i t i o n s   - - - - - - - - - - - - "
@@ -532,7 +532,7 @@ function s:DapsStylecheck()
     " remove empty lines from the output
     call filter(output, 'v:val != ""')
     " sort the output so that ERRORS are first and SUGGESTIONS last
-    let sorted_output = sort(output, 'CompareStylePriority')
+    let sorted_output = sort(output, 's:CompareStylePriority')
     call s:dbg('output -> ' . string(sorted_output))
     " cd back to cwd
     exe "lcd " . cwd
@@ -701,24 +701,34 @@ endfunction
 " formats the XML source of the active buffer
 function s:DapsXmlFormat()
   call s:dbg('# # # # # ' . expand('<sfile>') . ' # # # # #')
-  let buffer_directory = expand('%:p:h')
-  call s:dbg('buffer_directory -> ' . buffer_directory)
-  let buffer_content = getline(1, '$')
-  call s:dbg('buffer_content length -> ' . len(buffer_content))
+  let xml_file = expand('%')
+  call s:dbg('xml_file -> ' . xml_file)
+  " save the current buffer to disk
+  silent write
   " check if the XML file is well-formed
-  if s:IsXmlWellFormed(expand('%'))
-    let xml_format_cmd = b:daps_xmlformat_script . ' -f ' . b:daps_xmlformat_conf
-    call s:dbg('xmlformat cmd -> ' . xml_format_cmd)
+  if s:IsXmlWellFormed(xml_file)
+    let cmd = b:daps_xmlformat_script . ' -i -f ' . b:daps_xmlformat_conf . ' ' . xml_file
+    call s:dbg('xmlformat cmd -> ' . cmd)
     " Save the current cursor position
     let save_cursor = getpos(".")
-    let command_output = systemlist(xml_format_cmd, buffer_content)
-    silent %delete
-    " put the formatted buffer at zeroth line
-    silent :0put =command_output
+    " remove questions to re-load the file from disk
+    if &autoread
+      let autoread_was_before=1
+    else
+      let autoread_was_before=0
+      set autoread
+    endif
+    " run xmlformat
+    call systemlist(cmd)
+    " reload the file from disk
+    edit %
+    " re-eanble questions to re-load the file from disk
+    if autoread_was_before == 0
+      set noautoread
+    endif
     " Restore the cursor position
     call setpos('.', save_cursor)
-  else
-    silent echo 'XML document is not well-formed'
+    echon 'XML document is formatted'
   endif
 endfunction
 
