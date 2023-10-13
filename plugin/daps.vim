@@ -702,25 +702,61 @@ endfunction
 " formats the XML source of the active buffer
 function s:DapsXmlFormat()
   call s:dbg('# # # # # ' . expand('<sfile>') . ' # # # # #')
+  " clear all error windows and signs
+  execute 'cclose'
+  call clearmatches()
+  execute 'sign unplace *'
   let xml_file = expand('%')
   call s:dbg('xml_file -> ' . xml_file)
-  " save the current buffer to disk
-  silent write
-  " check if the XML file is well-formed
-  if s:IsXmlWellFormed(xml_file)
-    let cmd = b:daps_xmlformat_script . ' -i -f ' . b:daps_xmlformat_conf . ' ' . xml_file
-    call s:dbg('xmlformat cmd -> ' . cmd)
-    " Save the current cursor position
-    let save_cursor = getpos(".")
-    " remove questions to re-load the file from disk
-    if &autoread
-      let autoread_was_before=1
+  " ask to save the current buffer to disk if modified
+  if &modified
+    let input = input('Buffer is dirty, save before formatting? ', 'yes')
+    if input == 'yes'
+      silent write
     else
-      let autoread_was_before=0
-      set autoread
+      silent echon 'Cannot format dirty buffer'
+      return 0
     endif
-    " run xmlformat
-    call systemlist(cmd)
+  endif
+  let cmd = b:daps_xmlformat_script . ' -i -f ' . b:daps_xmlformat_conf . ' ' . xml_file
+  call s:dbg('xmlformat cmd -> ' . cmd)
+  " Save the current cursor position
+  let save_cursor = getpos(".")
+  " remove questions to re-load the file from disk
+  if &autoread
+    let autoread_was_before=1
+  else
+    let autoread_was_before=0
+    set autoread
+  endif
+  " run xmlformat
+  let result = systemlist(cmd)
+  " see if there were errors; empty result means no  errors
+  if len(result) > 0
+    " define signs for quickfix list
+    let qflist = []
+    let id = 1
+    sign define error text=E
+    let pattern = 'Error near line'
+    for line in result
+      if strpart(line, 0, len(pattern)) ==# pattern
+        call s:dbg('item -> ' . line)
+        "create qflist and signs
+        let lnum = matchstr(line, 'line \zs\d\+')
+        let tag = matchstr(line, '(\zs[^(]\+\ze)')
+        let err_msg = matchstr(line, ':\zs.*')
+        let item = { 'bufnr': bufnr('%'), 'lnum': lnum, 'type': 'error', 'text': tag . ':' .err_msg }
+        call add (qflist, item)
+        let sign_cmd = 'sign place ' . id . ' line=' . lnum . ' name=error file=' . bufname('%')
+        call s:dbg('sign_cmd -> ' . sign_cmd)
+        execute sign_cmd
+        let id += 1
+      endif
+    endfor
+    call setqflist(qflist)
+    execute 'copen'
+    return 0
+  else
     " reload the file from disk
     edit %
     " re-eanble questions to re-load the file from disk
