@@ -124,6 +124,7 @@ function s:Init()
   let g:daps_db_schema = {
         \'https://github.com/openSUSE/geekodoc/raw/master/geekodoc/rng/geekodoc5-flat.rng': 'geekodoc5',
         \'http://www.oasis-open.org/docbook/xml/5.0/rng/docbook.rng': 'docbook50',
+        \'http://www.oasis-open.org/docbook/xml/5.2/rng/docbook.rng': 'docbook52',
         \}
 
   " check if g:daps_debug is set
@@ -154,7 +155,7 @@ function s:Init()
       let b:daps_dapscfgdir = '/etc/daps/'
     else
       let b:daps_dapsroot = g:daps_dapsroot
-      let b:daps_dapscmd = b:daps_dapsroot . '/bin/daps --dapsroot=' . b:dapsroot
+      let b:daps_dapscmd = b:daps_dapsroot . '/bin/daps --dapsroot=' . b:daps_dapsroot
       let b:daps_dapscfgdir = b:daps_dapsroot . '/etc/'
     endif
     call s:dbg('dapsroot -> ' . b:daps_dapsroot)
@@ -409,7 +410,7 @@ function s:DapsSetDoctype(...)
       call s:dbg("'g:daps_doctype' is '" . g:daps_doctype . "', taking that")
       let b:doctype = g:daps_doctype
     else
-      let b:doctype = "docbook50"
+      let b:doctype = "docbook52"
       call s:dbg("No 'g:daps_doctype' is set, defaulting to '" . b:doctype . "'")
     endif
   else
@@ -729,6 +730,7 @@ function s:DapsXmlFormat()
     " Restore the cursor position
     call setpos('.', save_cursor)
     echon 'XML document is formatted'
+    return 1
   endif
 endfunction
 
@@ -792,6 +794,7 @@ function s:DapsLookupSchemasXML()
     let x_query = '/t:locatingRules/t:uri/@uri'
     let x_cmd = "xmlstarlet sel -T -N t='http://thaiopensource.com/ns/locating-rules/1.0' -t -v '" . x_query . "' xml/schemas.xml"
     let x_result = systemlist(x_cmd)[0]
+    call s:dbg('xquery result -> ' . x_result)
     if filereadable(x_result)
       return x_result
     endif
