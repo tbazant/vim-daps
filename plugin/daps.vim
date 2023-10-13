@@ -204,7 +204,7 @@ function s:Init()
   " decide whether run entity, set doctype, and import on new file open
   let b:daps_entity_import_autostart = get(g:, 'daps_entity_import_autostart', 0)
   if b:daps_entity_import_autostart == 1
-    autocmd BufReadPost,FileType docbk call s:DapsImportEntities()
+    call s:DapsImportEntities()
   endif
 
   " check if 'g:daps_builddir' exists and trigger setting it in current buffer
@@ -758,14 +758,14 @@ function s:DapsXmlFormat()
     return 0
   else
     " reload the file from disk
-    edit %
+    edit! %
     " re-eanble questions to re-load the file from disk
     if autoread_was_before == 0
       set noautoread
     endif
     " Restore the cursor position
     call setpos('.', save_cursor)
-    echon 'XML document is formatted'
+    redraw | echo 'XML document is formatted'
     return 1
   endif
 endfunction
