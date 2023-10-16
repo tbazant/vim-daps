@@ -10,12 +10,9 @@ your ~/.vim/plugin directory.
 You need to have daps (https://opensuse.github.io/daps) installed to use vim-daps
 commands in your Vim editor.
 
-
 Note:
 Before using any of vim-daps commands, you first have to specify which DC file
 you are going to use in the current buffer with the :DapsSetDCfile <DC-file> command.
-You can make vim-daps ask you for the DC file on a new buffer startup by setting
-g:let daps_dcfile_autostart = 1
 
 Commands:
 :DapsSetDCfile <dc-file>
@@ -60,10 +57,6 @@ Commands:
   containing xml:id="<xml_id>" and you do not specify the XML ID on the
   command line, it is extracter from the current line instead.
 
-:DapsSetBuildDir <build_dir>
-  Set the target directory for the --builddir option. Each buffer can have
-  its own build_dir.
-
 :DapsImportXmlIds
   Imports XML IDs from the current book/bookset based on a provided DC file.
   You can then auto complete them inside the '<xref linkend=""/>' tag.
@@ -96,10 +89,6 @@ g:daps_pdf_viewer = <command>
 g:daps_xmlschemas_autostart = 0 or 1
   If set to 1, looks for the 'xml/schemas.xml' file and parses the DocBook schema URI
   from it, possibly overriding the 'g:daps_doctype' setting. Default is 0.
-
-g:daps_auto_validate_file = 0 or 1
-  If set to 1, :DapsValidateFile() is run on the current buffer before :DapsValidate().
-  Default is 0.
 
 g:daps_builddir = <directory>
   Set the --builddir directory for the current buffer. Default is the 'build/' subdirectory

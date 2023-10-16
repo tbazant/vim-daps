@@ -16,13 +16,13 @@ let g:loaded_daps = 1
 " remember the script's directory
 let s:plugindir = resolve(expand('<sfile>:p:h:h'))
 
-" read g:daps_* variables from .vimrc and set defaults
-autocmd FileType docbk :call s:Init()
 
 " define actions triggered by events
 augroup vim_daps
   " clear exisitng autocommands in the group
   autocmd!
+  " read g:daps_* variables from .vimrc and set defaults
+  autocmd FileType docbk :call s:Init()
   " run style check on each saving the buffer
   "autocmd BufWritePost *.xml call s:DapsStylecheck()
 augroup END
@@ -51,11 +51,6 @@ endif
 " daps validate
 if !exists(":DapsValidate")
   command -nargs=0 DapsValidate :call s:DapsValidate(<f-args>)
-endif
-
-" daps validate file
-if !exists(":DapsValidateFile")
-  command -nargs=0 DapsValidateFile :call s:DapsValidateFile(<f-args>)
 endif
 
 " daps stylecheck
@@ -93,15 +88,6 @@ if !exists(":DapsOpenReferers")
   command -nargs=? -complete=custom,s:ListXmlIds DapsOpenReferers :call s:DapsOpenReferers(<f-args>)
 endif
 
-" --builddir
-if !exists(":DapsSetBuildDir")
-  command -nargs=1 -complete=file DapsSetBuildDir :call s:DapsSetBuildDir(<f-args>)
-endif
-" --styleroot
-if !exists(":DapsSetStyleroot")
-  command -nargs=1 -complete=file DapsSetStyleroot :call s:DapsSetStyleroot(<f-args>)
-endif
-
 " import all XML IDs given a DC-file
 if !exists(":DapsImportXmlIds")
   command -nargs=0 DapsImportXmlIds :call s:DapsImportXmlIds()
@@ -124,63 +110,33 @@ function s:Init()
   let g:daps_db_schema = {
         \'https://github.com/openSUSE/geekodoc/raw/master/geekodoc/rng/geekodoc5-flat.rng': 'geekodoc5',
         \'http://www.oasis-open.org/docbook/xml/5.0/rng/docbook.rng': 'docbook50',
+        \'http://www.oasis-open.org/docbook/xml/5.1/rng/docbook.rng': 'docbook51',
         \'http://www.oasis-open.org/docbook/xml/5.2/rng/docbook.rng': 'docbook52',
         \}
 
-  " check if g:daps_debug is set
-  if !exists("b:daps_debug")
-    if exists("g:daps_debug")
-      let b:daps_debug = g:daps_debug
-    else
-      let b:daps_debug = 0
-    endif
+  "   L   O   G   G   I   N   G
+  let b:daps_debug = get(g:, 'daps_debug')
+  let b:daps_log_file = get(g:, 'daps_log_file')
+  if filewritable(b:daps_log_file)
+    call writefile(["Start of a new round", "********************"], b:daps_log_file, 'a')
+  else
+    echoe b:daps_log_file . ' is not writable'
   endif
 
-  " check if g:daps_log_file is set
-  if !exists("b:daps_log_file")
-    if exists("g:daps_log_file")
-      if(writefile(["Start of a new round", "********************"], g:daps_log_file, 'a') == 0)
-        let b:daps_log_file = g:daps_log_file
-      else
-        echoe g:daps_log_file . ' is not writable'
-      endif
-    endif
-  endif
-
-  " determine daps root and daps cmd
-  if !exists("b:daps_dapsroot")
-    if !exists("g:daps_dapsroot")
-      let b:daps_dapsroot = '/usr/share/daps'
-      let b:daps_dapscmd = '/usr/bin/daps'
-      let b:daps_dapscfgdir = '/etc/daps/'
-    else
-      let b:daps_dapsroot = g:daps_dapsroot
-      let b:daps_dapscmd = b:daps_dapsroot . '/bin/daps --dapsroot=' . b:daps_dapsroot
-      let b:daps_dapscfgdir = b:daps_dapsroot . '/etc/'
-    endif
-    call s:dbg('dapsroot -> ' . b:daps_dapsroot)
-    call s:dbg('dapscmd -> ' . b:daps_dapscmd)
-    call s:dbg('dapscfgdir -> ' . b:daps_dapscfgdir)
-  endif
-
-  " set default pattern for DC file completion
-  let g:daps_dcfile_glob_pattern = get(g:, 'daps_dcfile_glob_pattern', "DC-*")
-
-  " set default pattern for entity file completion
-  let g:daps_entfile_glob_pattern = get(g:, 'daps_entfile_glob_pattern', "*")
-
-  " set default value for stylecheck after save
-  let g:daps_stylecheck_on_save = get(g:, 'daps_stylecheck_on_save', 0)
-
-  " set default value for opening qf window after stylecheck
-  let g:daps_stylecheck_qfwindow = get(g:, 'daps_stylecheck_qfwindow', 1)
-
-  " decide whether run :DapsValidateFile before :DapsValidate
-  if empty("g:daps_auto_validate_file")
-    let g:daps_auto_validate_file = 0
-  endif
-
-  " set doctype preventively
+  "   O  P  T  I  O  N  S'    D  E  F  A  U  L  T     V  A  L  U  E  S
+  let b:daps_executable = get(g:, 'daps_executable', '/usr/bin/daps')
+  let b:daps_dapsroot = get(g:, 'daps_dapsroot')
+  let b:daps_verbosity_level = get(g:, 'daps_verbosity_level', 2)
+  let b:daps_dcfile_glob_pattern = get(g:, 'daps_dcfile_glob_pattern', "DC-")
+  let b:daps_entfile_glob_pattern = get(g:, 'daps_entfile_glob_pattern', "*")
+  let b:daps_stylecheck_on_save = get(g:, 'daps_stylecheck_on_save', 0)
+  let b:daps_stylecheck_qfwindow = get(g:, 'daps_stylecheck_qfwindow', 1)
+  let b:daps_builddir = get(g:, 'daps_builddir', getcwd() . '/build/')
+  let b:daps_styleroot = get(g:, 'daps_styleroot')
+  let b:daps_auto_import_xmlids = get(g:, 'daps_auto_import_xmlids', 1)
+  let b:daps_xmlformat_script = get(g:, 'daps_xmlformat_script', 'xmlformat.pl')
+  let b:daps_xmlformat_conf = get(g:, 'daps_xmlformat_conf', '/etc/daps/docbook-xmlformat.conf')
+  let b:daps_entity_import_autostart = get(g:, 'daps_entity_import_autostart', 0)
   call s:DapsSetDoctype()
 
   " decide whether to read the xml/schemas.xml file for DocType
@@ -202,31 +158,10 @@ function s:Init()
 
 
   " decide whether run entity, set doctype, and import on new file open
-  let b:daps_entity_import_autostart = get(g:, 'daps_entity_import_autostart', 0)
   if b:daps_entity_import_autostart == 1
     call s:DapsImportEntities()
   endif
 
-  " check if 'g:daps_builddir' exists and trigger setting it in current buffer
-  let g:daps_builddir = get(g:, 'daps_builddir', getcwd() . '/build/')
-  call s:DapsSetBuildDir(g:daps_builddir)
-  if exists("g:daps_styleroot")
-    call s:DapsSetStyleroot(g:daps_styleroot)
-  endif
-
-  " check if 'g:daps_auto_import_xmlids' exists and set default value
-  let g:daps_auto_import_xmlids = get(g:, 'daps_auto_import_xmlids', 1)
-
-  " check if 'g:daps_optipng_before_build' exists and set default value
-  if !exists("g:daps_optipng_before_build")
-    let g:daps_optipng_before_build = 0
-  endif
-
-  " check for xmlformat options
-  let b:daps_xmlformat_script = get(g:, 'daps_xmlformat_script', 'xmlformat.pl')
-
-  " check for xmlformat config file
-  let b:daps_xmlformat_conf = get(g:, 'daps_xmlformat_conf', b:daps_dapscfgdir . 'docbook-xmlformat.conf')
 endfunction
 
 function s:dbg(msg)
@@ -267,7 +202,7 @@ endfunction
 " import all XML IDs given a DC-file
 function s:DapsImportXmlIds()
   call s:dbg('# # # # # ' . expand('<sfile>') . ' # # # # #')
-  if !empty(s:IsDCfileSet())
+  if !empty(s:getDCfile())
     " grep MAIN file out of the DC-file
     let main_file = matchstr(system('grep "^\s*MAIN=" ' . b:dc_file), '"\zs[^"]\+\ze"')
     call s:dbg('main file -> ' . main_file)
@@ -328,7 +263,7 @@ function s:DapsOpenTarget(...)
     endif
   endif
   if !empty(rootid)
-    if !empty(s:IsDCfileSet())
+    if !empty(s:getDCfile())
       let file_cmd = b:daps_dapscmd . ' -d ' . b:dc_file . ' list-file --rootid=' . rootid . ' 2> /dev/null'
       call s:dbg('file_cmd => ' . file_cmd)
       let file = systemlist(file_cmd)[0]
@@ -369,7 +304,7 @@ function s:DapsOpenReferers(...)
     endif
   endif
 
-  if !empty(s:IsDCfileSet())
+  if !empty(s:getDCfile())
     " get list of XML files for a given DC file
     let cmd = b:daps_dapscmd . " -d " . b:dc_file . " list-srcfiles --xmlonly"
     call s:dbg("ListXMLfiles cmd -> " . cmd)
@@ -405,24 +340,19 @@ endfunction
 function s:DapsSetDoctype(...)
   call s:dbg('# # # # # ' . expand('<sfile>') . ' # # # # #')
   if a:0 == 0
-    call s:dbg('No doctype specified on the cmdline, trying .vimrc')
-    if exists("g:daps_doctype")
-      call s:dbg("'g:daps_doctype' is '" . g:daps_doctype . "', taking that")
-      let b:doctype = g:daps_doctype
-    else
-      let b:doctype = "docbook52"
-      call s:dbg("No 'g:daps_doctype' is set, defaulting to '" . b:doctype . "'")
-    endif
+    call s:dbg("doctype is not specified, trying .vimrc")
+    let b:doctype = get(g:, 'daps_doctype', 'docbook52')
   else
+    call s:dbg("doctype specified on the cmdline, taking that")
     let b:doctype = a:1
-    call s:dbg("doctype '" . b:doctype . "' was specified on the cmdline, taking that")
   endif
+  call s:dbg("doctype -> " . b:doctype)
   call xmlcomplete#CreateConnection(b:doctype)
   call s:DapsImportEntities()
 endfunction
 
 " get DC file
-function s:IsDCfileSet()
+function s:getDCfile()
   call s:dbg('# # # # # ' . expand('<sfile>') . ' # # # # #')
   if exists("b:dc_file")
     call s:dbg('DC file was set with DapsSetDCfile() -> ' . b:dc_file)
@@ -463,19 +393,12 @@ endfunction
 " validates the document based on the DC file with tab completion
 function s:DapsValidate()
   call s:dbg('# # # # # ' . expand('<sfile>') . ' # # # # #')
-  if !empty(s:IsDCfileSet())
-    " check whether to run DapsValidateFile first and return 1 on error
-    if g:daps_auto_validate_file == 1 && s:DapsValidateFile() == 1
-      return 1
-    endif
-    let validate_cmd = b:daps_dapscmd . ' -vv -d ' . b:dc_file
-    if exists('b:styleroot')
-      let validate_cmd .= ' --styleroot=' . b:styleroot
-    endif
-    let validate_cmd .= ' validate'
-    call s:dbg('validate_cmd -> ' . validate_cmd)
+  let dc_file = s:getDCfile()
+  if !empty(dc_file)
+    let params = { 'dc_file': dc_file, 'cmd': 'validate' }
+    let cmd = s:getDapsCmd(params)
     " let the command run in vim terminal
-    let term_buf_no = s:RunCmdTerm(validate_cmd, 'daps', 'ValidateQuickfix_cb')
+    let term_buf_no = s:RunCmdTerm(cmd, 'daps', 'ValidateQuickfix_cb')
   endif
 endfunction
 
@@ -520,136 +443,64 @@ function s:DapsStylecheck()
   endif
   "save the current  buffer to disk
   write
-  if s:IsXmlWellFormed(expand('%'))
-    " remember current path, find the path of the active file and cd to that dir
-    let cwd = getcwd()
-    let current_file_dir = expand('%:h')
-    exe "lcd " . current_file_dir
-    let current_file_path = expand('%:t')
-    " compile vale command and run it
-    let vale_cmd = "vale --output " . s:plugindir . "/tools/vale_template --no-wrap --config " . s:plugindir . "/.vale.ini " . current_file_path
-    call s:dbg('vale_cmd -> ' . vale_cmd)
-    silent let output = systemlist(vale_cmd)
-    " remove empty lines from the output
-    call filter(output, 'v:val != ""')
-    " sort the output so that ERRORS are first and SUGGESTIONS last
-    let sorted_output = sort(output, 's:CompareStylePriority')
-    call s:dbg('output -> ' . string(sorted_output))
-    " cd back to cwd
-    exe "lcd " . cwd
-    " define signs for quickfix list
-    let qflist = []
-    let id = 1
-    sign define error text=E
-    sign define warning text=W
-    sign define suggestion text=S
-    if len(sorted_output) > 0
-      for line in sorted_output
-        call s:dbg('line -> ' . string(line))
-        if !empty(line)
-          " get the line array
-          let la = split(trim(line), ':')
-          let item = { 'bufnr': bufnr('%'), 'lnum': la[1], 'col': la[2], 'type': la[3], 'text': la[5] }
-          call add (qflist, item)
-          execute 'sign place ' . id . ' line=' . la[1] . ' name=' . la[3] . ' file=' . bufname('%')
-          call matchadd('Underlined', '\%' . la[1] . 'l\%' . la[2] . 'c\k\+')
-          let id += 1
-        endif
-      endfor
-      call setqflist(qflist)
-      if g:daps_stylecheck_qfwindow == 1
-        execute 'copen'
-      endif
-    else
-      execute 'cclose'
-      execute 'sign unplace *'
-      echow 'No style mistakes found'
-    endif
-  else
-    silent echo 'XML document is not well-formed'
-  endif
-endfunction
-
-" validates the current file only
-function s:DapsValidateFile()
-  call s:dbg('# # # # # ' . expand('<sfile>') . ' # # # # #')
-  " get the schema URI
-  call s:dbg('g:daps_db_schema size -> ' . len(g:daps_db_schema))
-  for [key, value] in items(g:daps_db_schema)
-    if value == b:doctype
-      let schema_uri = key
-      break
-    endif
-  endfor
-  call s:dbg('schema_uri -> ' . schema_uri)
-  if exists('schema_uri')
-    " get the schema file
-    let schema_file = systemlist('xmlcatalog /etc/xml/catalog ' . schema_uri)[0]
-    " if the result starts with 'No entry', then schema is missing in catalogue
-    if strpart(schema_file, 0, 8) == 'No entry'
-      echoe 'Schema uri ' . schema_uri . ' is missing in XML catalog'
-      return 1
-    endif
-    call s:dbg('schema_file -> ' . schema_file)
-    " run jing to check the current file's structure
-    let jing_cmd = 'jing -i ' . schema_file . ' ' . expand('%')
-    call s:dbg('jing_cmd -> ' . jing_cmd)
-    let jing_result = systemlist(jing_cmd)
-    call s:dbg('jing_result size -> ' . len(jing_result))
-    if !empty(jing_result)
-      " define signs
-      sign define error text=E
-      sign define warning text=W
-      sign define fatal text=F
-      let qflist = []
-      let id = 1
-      for line in jing_result
-        let sl = split(line, ':')
-        call add(qflist, {
-              \ 'filename': sl[0],
-              \ 'lnum': sl[1],
-              \ 'col': sl[2],
-              \ 'type': substitute(sl[3], ' ', '', ''),
-              \ 'text': strpart(sl[4], 0, 70) . '...',
-              \})
-        execute 'sign place ' . id . ' line=' . sl[1] . ' name=' . substitute(sl[3], ' ', '', '') . ' file=' . sl[0]
+  " remember current path, find the path of the active file and cd to that dir
+  let cwd = getcwd()
+  let current_file_dir = expand('%:h')
+  exe "lcd " . current_file_dir
+  let current_file_path = expand('%:t')
+  " compile vale command and run it
+  let vale_cmd = "vale --output " . s:plugindir . "/tools/vale_template --no-wrap --config " . s:plugindir . "/.vale.ini " . current_file_path
+  call s:dbg('vale_cmd -> ' . vale_cmd)
+  silent let output = systemlist(vale_cmd)
+  " remove empty lines from the output
+  call filter(output, 'v:val != ""')
+  " sort the output so that ERRORS are first and SUGGESTIONS last
+  let sorted_output = sort(output, 's:CompareStylePriority')
+  call s:dbg('output -> ' . string(sorted_output))
+  " cd back to cwd
+  exe "lcd " . cwd
+  " define signs for quickfix list
+  let qflist = []
+  let id = 1
+  sign define error text=E
+  sign define warning text=W
+  sign define suggestion text=S
+  if len(sorted_output) > 0
+    for line in sorted_output
+      call s:dbg('line -> ' . string(line))
+      if !empty(line)
+        " get the line array
+        let la = split(trim(line), ':')
+        let item = { 'bufnr': bufnr('%'), 'lnum': la[1], 'col': la[2], 'type': la[3], 'text': la[5] }
+        call add (qflist, item)
+        execute 'sign place ' . id . ' line=' . la[1] . ' name=' . la[3] . ' file=' . bufname('%')
+        call matchadd('Underlined', '\%' . la[1] . 'l\%' . la[2] . 'c\k\+')
         let id += 1
-      endfor
-      call setqflist(qflist)
-      execute 'copen' len(qflist) + 4
-      return 1
-    else
-      execute 'cclose'
-      execute 'sign unplace *'
-      echom 'The current buffer is valid.'
-      return 0
+      endif
+    endfor
+    call setqflist(qflist)
+    if g:daps_stylecheck_qfwindow == 1
+      execute 'copen'
     endif
   else
-    echoe 'Cannot extract schema URI for ' . b:doctype
-    return 1
+    execute 'cclose'
+    execute 'sign unplace *'
+    echow 'No style mistakes found'
   endif
 endfunction
 
 " builds the current chapter
 function s:DapsBuild(target)
   call s:dbg('# # # # # ' . expand('<sfile>') . ' # # # # #')
-  if !empty(s:IsDCfileSet())
+  if !empty(s:getDCfile())
     " save the build target across buffers
     let s:DapsBuildTarget = a:target
     call s:dbg('DapsBuildTarget -> ' . s:DapsBuildTarget)
-    " assemble daps cmdline
-    let dapscmd = b:daps_dapscmd . ' -vv -d ' . b:dc_file
-    if exists('b:styleroot')
-      let dapscmd .= ' --styleroot=' . b:styleroot
-    endif
-    if exists('b:builddir')
-      let dapscmd .= ' --builddir=' . b:builddir
-    endif
-    let dapscmd .= ' ' . a:target
-    let dapscmd .= ' 2> /dev/null'
-    call s:dbg('dapscmd -> ' . dapscmd)
+    " assemble daps cmdlines
+    let cmd = s:getDapsCmd({ 'dc_file': s:getDCfile(), 'build_target': a:target })
+    call s:dbg('dapscmd -> ' . cmd)
     " run dapscmd in a terminal window
-    let term_buf_no = s:RunCmdTerm(dapscmd, 'daps', 'BuildTarget_cb')
+    let term_buf_no = s:RunCmdTerm(cmd, 'daps', 'BuildTarget_cb')
   endif
 endfunction
 
@@ -660,15 +511,9 @@ function s:DapsBuildXmlFile()
   let xml_file = expand('%')
   " save the active buffer to disk
   silent write
-  " check if the XML file is well-formed
-  if s:IsXmlWellFormed(xml_file)
-    let cmd = 'daps -m ' . xml_file . ' html --single --norefcheck'
-    call s:dbg('cmd -> ' . cmd)
-    let s:DapsBuildTarget = 'html'
-    let term_buf_no = s:RunCmdTerm(cmd, 'daps', 'BuildTarget_cb')
-  else
-    silent echo 'XML document is not well-formed'
-  endif
+  let cmd = s:getDapsCmd({ 'xml_file': xml_file, 'build_target': 'html', 'options': [ '--single', '--norefcheck']})
+  let s:DapsBuildTarget = 'html'
+  let term_buf_no = s:RunCmdTerm(cmd, 'daps', 'BuildTarget_cb')
 endfunction
 
 " callback to run build inside a trminal winow
@@ -837,30 +682,6 @@ function s:DapsLookupSchemasXML()
   endif
 endfunction
 
-" set --buildroot for the current buffer
-function s:DapsSetBuildDir(builddir)
-  call s:dbg('# # # # # ' . expand('<sfile>') . ' # # # # #')
-  " check if builddir exists and if it is a writable directory
-  if filewritable(a:builddir) == 2
-    let b:builddir = a:builddir
-  elseif mkdir(a:builddir, "p")
-    let b:builddir = a:builddir
-  else
-    echoerr a:builddir . ' is not a writable directory'
-  endif
-endfunction
-
-" set --styleroot for customstylesheets (overriding DC-* file setting)
-function s:DapsSetStyleroot(styleroot)
-  call s:dbg('# # # # # ' . expand('<sfile>') . ' # # # # #')
-  " check if styleroot is writable
-  if isdirectory(a:styleroot)
-    let b:styleroot = a:styleroot
-  else
-    echoerr a:styleroot . ' is not a directory'
-  endif
-endfunction
-
 " compares priority of style check results
 function s:CompareStylePriority(a, b)
   call s:dbg('# # # # # ' . expand('<sfile>') . ' # # # # #')
@@ -883,45 +704,38 @@ function s:CompareStylePriority(a, b)
   return (a_priority - b_priority)
 endfunction
 
-function s:IsXmlWellFormed(xml_file)
+function s:getDapsCmd(params)
   call s:dbg('# # # # # ' . expand('<sfile>') . ' # # # # #')
-  " clear all error windows and signs
-  execute 'cclose'
-  call clearmatches()
-  execute 'sign unplace *'
-  call s:dbg('xml_file -> ' . a:xml_file)
-  " run xmllint and check the well-formedness
-  let cmd = 'xmllint --noout --noent ' . a:xml_file . ' 2>&1'
-  call s:dbg('cmd -> ' . cmd)
-  let result = systemlist(cmd)
-  call s:dbg('result length -> ' . len(result))
-  call s:dbg('result -> ' . string(result))
-  " Check the result and return a boolean value
-  if v:shell_error == 0
-    call s:dbg('file is well-formed')
-    return 1
-  else
-    call s:dbg('file is NOT well-formed')
-    " define signs for quickfix list
-    let qflist = []
-    let id = 1
-    sign define error text=E
-    for line in result
-      " get the line array
-      let la = split(trim(line), ':')
-      if la[0] == expand('%')
-        let item = { 'bufnr': bufnr('%'), 'lnum': la[1], 'type': 'error', 'text': la[3] }
-        call add (qflist, item)
-        let sign_cmd = 'sign place ' . id . ' line=' . la[1] . ' name=error file=' . bufname('%')
-        call s:dbg('sign_cmd -> ' . sign_cmd)
-        execute sign_cmd
-        let id += 1
-      endif
-    endfor
-    call setqflist(qflist)
-    execute 'copen'
-    return 0
+  let daps_cmd = []
+  call add(daps_cmd, b:daps_executable)
+  if !empty(b:daps_dapsroot)
+    call add(daps_cmd, '--dapsroot ' . b:daps_dapsroot)
   endif
+  if !empty(b:daps_verbosity_level)
+    call add(daps_cmd, '-v' . b:daps_verbosity_level)
+  endif
+  if !empty(b:daps_styleroot)
+    call add(daps_cmd, '--styleroot ' . b:daps_styleroot)
+  endif
+  if exists("a:params['dc_file']") && !empty(a:params['dc_file'])
+    call add(daps_cmd, '-d ' . a:params['dc_file'])
+  elseif exists("a:params['xml_file']") && !empty(a:params['xml_file'])
+    call add(daps_cmd, '-m ' . a:params['xml_file'])
+  endif
+  if exists("a:params['cmd']") && !empty(a:params['cmd'])
+    call add(daps_cmd, a:params['cmd'])
+  elseif exists("a:params['build_target']") && !empty(a:params['build_target'])
+    call add(daps_cmd, a:params['build_target'])
+  endif
+  if exists("a:params['root_id']") && !empty(a:params['root_id'])
+    call add(daps_cmd, '--rootid ' . a:params['root_id'])
+  endif
+  if exists("a:params['options']") && !empty(a:params['options'])
+    call add(daps_cmd, join(a:params['options'], ' '))
+  endif
+  let cmd = join(daps_cmd, ' ')
+  call s:dbg('daps cmd -> ' . cmd)
+  return cmd
 endfunction
 
 " - - - - - - - - - - - - -  e n d  f u n c t i o n s   - - - - - - - - - - - - "
