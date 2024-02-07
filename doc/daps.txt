@@ -69,9 +69,6 @@ Commands:
 g:daps_dcfile_glob_pattern = <pattern>
   Set the globbing pattern to be used for DC file autocompletion.
 
-g:daps_entity_import_autostart
-  If set to 1, runs XML entity import on DocBook files automatically.
-
 g:daps_entfile_glob_pattern = <pattern>
   Globbing patter for entity file autocompletion. Default is '*'.
 

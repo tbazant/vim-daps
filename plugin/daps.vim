@@ -22,30 +22,109 @@ augroup vim_daps
   autocmd!
   " read g:daps_* variables from .vimrc and set defaults
   autocmd FileType docbk :call s:Init()
-  " run style check on each saving the buffer
-  "autocmd BufWritePost *.xml call s:DapsStylecheck()
+  " run style check on each saving the buffer if enabled
+  if daps_stylecheck_on_save == 1
+     autocmd BufWritePost *.xml call s:DapsStylecheck()
+  endif
 augroup END
 
-source <sfile>:p:h/commands.vim
+" - - - - - - - - - - - - -  c o m m a n d   d e f i n i t i o n s   - - - - - - - - - - - - "
+" dummy command and function for testing purposes
+if !exists(":DapsDummy")
+  command -nargs=* DapsDummy :call s:DapsDummy(<f-args>)
+endif
+
+" set default DC-* file for current buffer
+if !exists(":DapsSetDCfile")
+  command -complete=custom,s:ListDCfiles -nargs=1 DapsSetDCfile :call s:DapsSetDCfile(<f-args>)
+endif
+
+" set DocType (version) for DocBook (and derived) documents
+if !exists(":DapsSetDoctype")
+  command -complete=custom,s:ListXMLdictionaries -nargs=* DapsSetDoctype :call s:DapsSetDoctype(<f-args>)
+endif
+
+" import DB entities from external file
+if !exists(":DapsImportEntities")
+  command -complete=file -nargs=* DapsImportEntities :call s:DapsImportEntities(<f-args>)
+endif
+
+" daps validate
+if !exists(":DapsValidate")
+  command -nargs=0 DapsValidate :call s:DapsValidate(<f-args>)
+endif
+
+" daps stylecheck
+if !exists(":DapsStylecheck")
+  command -nargs=0 DapsStylecheck :call s:DapsStylecheck(<f-args>)
+endif
+
+" daps xmlformat
+if !exists(":DapsXmlFormat")
+  command -nargs=0 DapsXmlFormat call s:DapsXmlFormat(<f-args>)
+endif
+
+" daps html
+if !exists(":DapsHtml")
+  command -nargs=0 DapsHtml :call s:DapsBuild('html')
+endif
+
+" daps pdf
+if !exists(":DapsPdf")
+  command -nargs=0 DapsPdf :call s:DapsBuild('pdf')
+endif
+
+" daps -m xml_file html --single --norefcheck
+if !exists(":DapsBuildXmlFile")
+  command -nargs=? DapsBuildXmlFile :call s:DapsBuildXmlFile(<f-args>)
+endif
+
+" daps list-file
+if !exists(":DapsOpenTarget")
+  command -nargs=? -complete=custom,s:ListXrefTargets DapsOpenTarget :call s:DapsOpenTarget(<f-args>)
+endif
+
+" opens files that refers to the provided XML:ID
+if !exists(":DapsOpenReferers")
+  command -nargs=? -complete=custom,s:ListXmlIds DapsOpenReferers :call s:DapsOpenReferers(<f-args>)
+endif
+
+" import all XML IDs given a DC-file
+if !exists(":DapsImportXmlIds")
+  command -nargs=0 DapsImportXmlIds :call s:DapsImportXmlIds()
+endif
+
+" shift DocBook sections' level up/down the tree
+if !exists(":DapsShiftSectUp")
+  command -nargs=0 -range DapsShiftSectUp <line1>,<line2>s/sect\(\d\)\(.*\)>/\="sect" . (submatch(1) - 1) . submatch(2) . ">"/g
+endif
+if !exists(":DapsShiftSectDown")
+  command -nargs=0 -range DapsShiftSectDown <line1>,<line2>s/sect\(\d\)\(.*\)>/\="sect" . (submatch(1) + 1) . submatch(2) . ">"/g
+endif
+
+
 " - - - - - - - - - - - - -   f u n c t i o n s   - - - - - - - - - - - - "
 
 " read g:daps_* variables from ~/.vimrc and set buffer-wide defaults
 function s:Init()
   " fill the  DB schema resolving hash
   let g:daps_db_schema = {
-        \'https://github.com/openSUSE/geekodoc/raw/master/geekodoc/rng/geekodoc5-flat.rng': 'geekodoc5',
+        \'https://github.com/openSUSE/geekodoc/raw/main/geekodoc/rng/geekodoc5-flat.rng': 'geekodoc5',
         \'http://www.oasis-open.org/docbook/xml/5.0/rng/docbook.rng': 'docbook50',
         \'http://www.oasis-open.org/docbook/xml/5.1/rng/docbook.rng': 'docbook51',
         \'http://www.oasis-open.org/docbook/xml/5.2/rng/docbook.rng': 'docbook52',
         \}
 
   "   L   O   G   G   I   N   G
-  let b:daps_debug = get(g:, 'daps_debug')
-  let b:daps_log_file = get(g:, 'daps_log_file')
-  if filewritable(b:daps_log_file)
-    call writefile(["Start of a new round", "********************"], b:daps_log_file, 'a')
-  else
-    echoe b:daps_log_file . ' is not writable'
+  let b:daps_debug = get(g:, 'daps_debug', 0)
+  if b:daps_debug == 1
+    let b:daps_log_file = get(g:, 'daps_log_file')
+  " check if file exists and is writable, or try to create an empty one
+    try
+      call writefile(["Start of a new round", "********************"], b:daps_log_file, 'a')
+    catch
+      echoerr "Error creating the file: " . v:exception
+    endtry
   endif
 
   "   O  P  T  I  O  N  S'    D  E  F  A  U  L  T     V  A  L  U  E  S
@@ -61,7 +140,6 @@ function s:Init()
   let b:daps_auto_import_xmlids = get(g:, 'daps_auto_import_xmlids', 1)
   let b:daps_xmlformat_script = get(g:, 'daps_xmlformat_script', 'xmlformat.pl')
   let b:daps_xmlformat_conf = get(g:, 'daps_xmlformat_conf', '/etc/daps/docbook-xmlformat.conf')
-  let b:daps_entity_import_autostart = get(g:, 'daps_entity_import_autostart', 0)
   call s:DapsSetDoctype()
 
   " decide whether to read the xml/schemas.xml file for DocType
@@ -81,21 +159,15 @@ function s:Init()
     endif
   endif
 
-
-  " decide whether run entity, set doctype, and import on new file open
-  if b:daps_entity_import_autostart == 1
-    call s:DapsImportEntities()
-  endif
-
 endfunction
 
 function s:dbg(msg)
   if b:daps_debug == 1
     let msg = "DEBUG: " . a:msg
-    if exists("b:daps_log_file")
+    if exists("b:daps_log_file") && !empty(b:daps_log_file)
       call writefile([msg], b:daps_log_file, 'a')
     else
-      echo msg
+      echom msg
     endif
   endif
 endfunction
@@ -120,7 +192,7 @@ endfunction
 " list all <xref>s' IDs from the current buffer
 function s:ListXrefTargets(A,L,P)
   call s:dbg('# # # # # ' . expand('<sfile>') . ' # # # # #')
-  let cmd = 'xsltproc ' . b:daps_dapsroot . '/tools/get-all-xrefsids.xsl ' . expand('%') . ' | sort -u'
+  let cmd = 'xsltproc ' . exists(b:daps_dapsroot) ? b:daps_dapsroot : '/usr/share/daps'. '/tools/get-all-xrefsids.xsl ' . expand('%') . ' | sort -u'
   return system(cmd)
 endfunction
 
@@ -131,7 +203,7 @@ function s:DapsImportXmlIds()
     " grep MAIN file out of the DC-file
     let main_file = matchstr(system('grep "^\s*MAIN=" ' . b:dc_file), '"\zs[^"]\+\ze"')
     call s:dbg('main file -> ' . main_file)
-    let xsltproc_cmd = 'xsltproc --xinclude ' . b:daps_dapsroot . '/daps-xslt/common/get-all-xmlids.xsl xml/' . main_file
+    let xsltproc_cmd = 'xsltproc --xinclude ' . exists(b:daps_dapsroot) ? b:daps_dapsroot : '/usr/share/daps' . '/daps-xslt/common/get-all-xmlids.xsl xml/' . main_file
     call s:dbg('xsltproc_cmd -> ' . xsltproc_cmd)
     let g:xmldata_{b:doctype}.xref[1].linkend = sort(systemlist(xsltproc_cmd))
   endif
@@ -207,7 +279,7 @@ endfunction
 function s:ListXmlIds(A,L,P)
   call s:dbg('# # # # # ' . expand('<sfile>') . ' # # # # #')
   " get list of XML IDs in the current file
-  let xmlids = system('xsltproc ' . b:daps_dapsroot . '/daps-xslt/common/get-all-xmlids.xsl ' . expand('%'))
+  let xmlids = system('xsltproc ' . exists(b:daps_dapsroot) ? b:daps_dapsroot : '/usr/share/daps' . '/daps-xslt/common/get-all-xmlids.xsl ' . expand('%'))
   call s:dbg('Num of XML IDs -> ' . len(xmlids))
   return xmlids
 endfunction
@@ -265,7 +337,7 @@ endfunction
 function s:DapsSetDoctype(...)
   call s:dbg('# # # # # ' . expand('<sfile>') . ' # # # # #')
   if a:0 == 0
-    call s:dbg("doctype is not specified, trying .vimrc")
+    call s:dbg("doctype is not specified, trying .vimrc or taking default")
     let b:doctype = get(g:, 'daps_doctype', 'docbook52')
   else
     call s:dbg("doctype specified on the cmdline, taking that")
@@ -332,6 +404,10 @@ function ValidateQuickfix_cb(job, exit_status)
   call s:dbg('# # # # # ' . expand('<sfile>') . ' # # # # #')
   let job = a:job
   call s:dbg('job -> ' . job)
+  " erase all signs and underlinings
+  call clearmatches()
+  execute 'cclose'
+  execute 'sign unplace *'
   let term_buf_no = ch_getbufnr(job, 'out')
   call s:dbg('term_buf_no -> ' . term_buf_no)
   " wait some time til terminal buffer synchronizes
@@ -551,7 +627,7 @@ function s:DapsImportEntities(...)
       return
     endif
     " no arg given, try daps' getentityname.py
-    let getentityname = b:daps_dapsroot . '/libexec/getentityname.py'
+    let getentityname = exists(b:daps_dapsroot) ? b:daps_dapsroot : '/usr/share/daps' . '/libexec/getentityname.py'
     call s:dbg('getentityname -> ' . getentityname)
     let ent_str = substitute(system(getentityname . ' ' . expand('%:p')), '\n\+$', '', '')
     call s:dbg('ent_str -> ' . ent_str)
