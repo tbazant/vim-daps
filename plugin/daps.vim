@@ -17,16 +17,8 @@ let g:loaded_daps = 1
 let s:plugindir = resolve(expand('<sfile>:p:h:h'))
 
 " define actions triggered by events
-augroup vim_daps
-  " clear exisitng autocommands in the group
-  autocmd!
-  " read g:daps_* variables from .vimrc and set defaults
-  autocmd FileType docbk :call s:Init()
-  " run style check on each saving the buffer if enabled
-  if daps_stylecheck_on_save == 1
-     autocmd BufWritePost *.xml call s:DapsStylecheck()
-  endif
-augroup END
+" read g:daps_* variables from .vimrc and set defaults
+autocmd FileType docbk :call s:Init()
 
 " - - - - - - - - - - - - -  c o m m a n d   d e f i n i t i o n s   - - - - - - - - - - - - "
 " dummy command and function for testing purposes
@@ -37,6 +29,11 @@ endif
 " set default DC-* file for current buffer
 if !exists(":DapsSetDCfile")
   command -complete=custom,s:ListDCfiles -nargs=1 DapsSetDCfile :call s:DapsSetDCfile(<f-args>)
+endif
+
+" set --rootid for the current buffer
+if !exists(":DapsSetRootId")
+  command -nargs=1 DapsSetRootId :call s:DapsSetRootId(<f-args>)
 endif
 
 " set DocType (version) for DocBook (and derived) documents
@@ -140,6 +137,8 @@ function s:Init()
   let b:daps_auto_import_xmlids = get(g:, 'daps_auto_import_xmlids', 1)
   let b:daps_xmlformat_script = get(g:, 'daps_xmlformat_script', 'xmlformat.pl')
   let b:daps_xmlformat_conf = get(g:, 'daps_xmlformat_conf', '/etc/daps/docbook-xmlformat.conf')
+  let b:daps_dc_file = get(g:, 'daps_dc_file')
+  let b:daps_root_id = get(g:, 'daps_root_id')
   call s:DapsSetDoctype()
 
   " decide whether to read the xml/schemas.xml file for DocType
@@ -201,7 +200,7 @@ function s:DapsImportXmlIds()
   call s:dbg('# # # # # ' . expand('<sfile>') . ' # # # # #')
   if !empty(s:getDCfile())
     " grep MAIN file out of the DC-file
-    let main_file = matchstr(system('grep "^\s*MAIN=" ' . b:dc_file), '"\zs[^"]\+\ze"')
+    let main_file = matchstr(system('grep "^\s*MAIN=" ' . b:daps_dc_file), '"\zs[^"]\+\ze"')
     call s:dbg('main file -> ' . main_file)
     let xsltproc_cmd = 'xsltproc --xinclude ' . exists(b:daps_dapsroot) ? b:daps_dapsroot : '/usr/share/daps' . '/daps-xslt/common/get-all-xmlids.xsl xml/' . main_file
     call s:dbg('xsltproc_cmd -> ' . xsltproc_cmd)
@@ -224,16 +223,24 @@ function s:DapsSetDCfile(dc_file)
   call s:dbg('# # # # # ' . expand('<sfile>') . ' # # # # #')
   if filereadable(a:dc_file)
     "set dc_file for current buffer
-    let b:dc_file = a:dc_file
+    let b:daps_dc_file = a:dc_file
     "set dc_file globally so that new buffers get it from the previous ones
-    let g:daps_dc_file = b:dc_file
+    let g:daps_dc_file = b:daps_dc_file
     if g:daps_auto_import_xmlids == 1
       call s:DapsImportXmlIds()
     endif
-    return b:dc_file
+    return b:daps_dc_file
   else
     echoerr "The specified DC file is not readable."
   endif
+endfunction
+
+"set --rootid for the current buffer
+function s:DapsSetRootId(root_id)
+  call s:dbg('# # # # # ' . expand('<sfile>') . ' # # # # #')
+  let b:daps_root_id = a:root_id
+    call s:dbg('b:daps_root_id -> ' . b:daps_root_id)
+  return b:daps_root_id
 endfunction
 
 " implement `daps list-file`
@@ -261,7 +268,7 @@ function s:DapsOpenTarget(...)
   endif
   if !empty(rootid)
     if !empty(s:getDCfile())
-      let file_cmd = b:daps_dapscmd . ' -d ' . b:dc_file . ' list-file --rootid=' . rootid . ' 2> /dev/null'
+      let file_cmd = b:daps_dapscmd . ' -d ' . b:daps_dc_file . ' list-file --rootid=' . rootid . ' 2> /dev/null'
       call s:dbg('file_cmd => ' . file_cmd)
       let file = systemlist(file_cmd)[0]
       if filereadable(file)
@@ -303,7 +310,7 @@ function s:DapsOpenReferers(...)
 
   if !empty(s:getDCfile())
     " get list of XML files for a given DC file
-    let cmd = b:daps_dapscmd . " -d " . b:dc_file . " list-srcfiles --xmlonly"
+    let cmd = b:daps_dapscmd . " -d " . b:daps_dc_file . " list-srcfiles --xmlonly"
     call s:dbg("ListXMLfiles cmd -> " . cmd)
     let files = join(systemlist(cmd), ' ')
     call s:dbg("Num of XML files -> " . len(split(files, '\s')))
@@ -348,16 +355,12 @@ function s:DapsSetDoctype(...)
   call s:DapsImportEntities()
 endfunction
 
-" get DC file
+" discover DC file
 function s:getDCfile()
   call s:dbg('# # # # # ' . expand('<sfile>') . ' # # # # #')
-  if exists("b:dc_file")
-    call s:dbg('DC file was set with DapsSetDCfile() -> ' . b:dc_file)
-    return b:dc_file
-  elseif exists("g:daps_dc_file")
-    let b:dc_file = g:daps_dc_file
-    call s:dbg('DC file was set in (per project) .vimrc -> ' . b:dc_file)
-    return b:dc_file
+  if exists("b:daps_dc_file")
+    call s:dbg('Buffer DC file -> ' . b:daps_dc_file)
+    return b:daps_dc_file
   else
     call s:dbg('Asking the user for DC file')
     return s:AskForDCFile()
@@ -728,8 +731,8 @@ function s:getDapsCmd(params)
   elseif exists("a:params['build_target']") && !empty(a:params['build_target'])
     call add(daps_cmd, a:params['build_target'])
   endif
-  if exists("a:params['root_id']") && !empty(a:params['root_id'])
-    call add(daps_cmd, '--rootid ' . a:params['root_id'])
+  if exists("b:daps_root_id") && !empty(b:daps_root_id)
+    call add(daps_cmd, '--rootid ' . b:daps_root_id)
   endif
   if exists("a:params['options']") && !empty(a:params['options'])
     call add(daps_cmd, join(a:params['options'], ' '))
