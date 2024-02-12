@@ -21,6 +21,9 @@ Commands:
 :DapsValidate
   Validates the DocBook XML document specified by the give DC file.
 
+:DapsBuild
+  Builds documentation by the specified build target.
+
 :DapsHtml
   Builds HTML from the DocBook XML document in the current buffer.
 
@@ -41,6 +44,9 @@ Commands:
 
 :DapsSetRootId <root_id>
   Specifies the optional --rootid parameter.
+
+:DapsSetBuildTarget <build_target>
+  Specifies the build target, 'html' or 'pdf'.
 
 :DapsStylecheck
   Check the current buffer's DocBook and content style, then displays
@@ -69,6 +75,15 @@ Commands:
   one level. Useful for refactoring documents.
 
                                                            *daps-settings*
+g:daps_dc_file = <file>
+  Specifies the DC file to use by default.
+
+g:daps_root_id = <root_id>
+  Specifies the default root ID to build.
+
+g:daps_build_target = <build_target>
+  Specifies the default build target, 'html' or 'pdf'.
+
 g:daps_dcfile_glob_pattern = <pattern>
   Set the globbing pattern to be used for DC file autocompletion.
 

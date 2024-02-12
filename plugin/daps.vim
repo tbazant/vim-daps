@@ -31,6 +31,16 @@ if !exists(":DapsSetDCfile")
   command -complete=custom,s:ListDCfiles -nargs=1 DapsSetDCfile :call s:DapsSetDCfile(<f-args>)
 endif
 
+" set default build target for current buffer
+if !exists(":DapsSetBuildTarget")
+  command -complete=customlist,s:ListBuildTargets -nargs=1 DapsSetBuildTarget :call s:DapsSetBuildTarget(<f-args>)
+endif
+
+"build doc by specified target
+if !exists(":DapsBuild")
+  command -complete=customlist,s:ListBuildTargets -nargs=? DapsBuild :call s:DapsBuild(<f-args>)
+endif
+
 " set --rootid for the current buffer
 if !exists(":DapsSetRootId")
   command -nargs=1 DapsSetRootId :call s:DapsSetRootId(<f-args>)
@@ -176,6 +186,12 @@ function s:ListDCfiles(A,L,P)
   call s:dbg('# # # # # ' . expand('<sfile>') . ' # # # # #')
   return system("ls -1 " . g:daps_dcfile_glob_pattern)
 endfunction
+"
+" lists all DC files in the current directory
+function s:ListBuildTargets(A,L,P)
+  call s:dbg('# # # # # ' . expand('<sfile>') . ' # # # # #')
+  return ['html', 'pdf']
+endfunction
 
 " lists XML dictionaries from vim-daps plugin
 function s:ListXMLdictionaries(A,L,P)
@@ -218,14 +234,26 @@ function s:AskForDCFile()
   return s:DapsSetDCfile(dc_file)
 endfunction
 
+" ask for build target
+function s:AskForBuildTarget()
+  call s:dbg('# # # # # ' . expand('<sfile>') . ' # # # # #')
+  call inputsave()
+  let build_target = input("Enter build target: ", "", "custom,s:ListBuildTargets")
+  call inputrestore()
+  redrawstatus
+  return s:DapsSetBuildTarget(build_target)
+endfunction
+
 " set current buffer's DC-* file
 function s:DapsSetDCfile(dc_file)
   call s:dbg('# # # # # ' . expand('<sfile>') . ' # # # # #')
   if filereadable(a:dc_file)
     "set dc_file for current buffer
     let b:daps_dc_file = a:dc_file
-    "set dc_file globally so that new buffers get it from the previous ones
-    let g:daps_dc_file = b:daps_dc_file
+    "if not already specified, set DC file globally so that new buffers inherit it
+    if !exists("g:daps_dc_file")
+      let g:daps_dc_file = b:daps_dc_file
+    endif
     if g:daps_auto_import_xmlids == 1
       call s:DapsImportXmlIds()
     endif
@@ -233,6 +261,21 @@ function s:DapsSetDCfile(dc_file)
   else
     echoerr "The specified DC file is not readable."
   endif
+endfunction
+
+" set current buffer's build target
+function s:DapsSetBuildTarget(build_target)
+  call s:dbg('# # # # # ' . expand('<sfile>') . ' # # # # #')
+    "set build target for the current buffer
+    let b:daps_build_target = a:build_target
+    "define script-wide variable for detached terminal
+    let s:daps_build_target = a:build_target
+    "if not already specified, set build target globally so that new buffers inherit it
+    if !exists("g:daps_build_target")
+      let g:daps_build_target = b:daps_build_target
+      call s:dbg('g:daps_build_target -> ' . g:daps_build_target)
+    endif
+    return b:daps_build_target
 endfunction
 
 "set --rootid for the current buffer
@@ -367,6 +410,18 @@ function s:getDCfile()
   endif
 endfunction
 
+" discover build target file
+function s:getBuildTarget()
+  call s:dbg('# # # # # ' . expand('<sfile>') . ' # # # # #')
+  if exists("b:daps_build_target")
+    call s:dbg('Buffer build target -> ' . b:daps_build_target)
+    return b:daps_build_target
+  else
+    call s:dbg('Asking the user for build target')
+    return s:AskForBuildTarget()
+  endif
+endfunction
+
 " run command 'cmd' in a terminal buffer named 'name' with exit callback
 " 'exit_cb'
 function s:RunCmdTerm(cmd, name, exit_cb)
@@ -494,14 +549,17 @@ function s:DapsStylecheck()
 endfunction
 
 " builds the current chapter
-function s:DapsBuild(target)
+function s:DapsBuild(build_target='')
   call s:dbg('# # # # # ' . expand('<sfile>') . ' # # # # #')
+  call s:dbg('a:build_target -> ' . a:build_target)
+  "if target is specified, set it as default for this buffer
+  if !empty(a:build_target)
+  call s:dbg('a:build_target -> ' . a:build_target)
+    call s:DapsSetBuildTarget(a:build_target)
+  endif
   if !empty(s:getDCfile())
-    " save the build target across buffers
-    let s:DapsBuildTarget = a:target
-    call s:dbg('DapsBuildTarget -> ' . s:DapsBuildTarget)
-    " assemble daps cmdlines
-    let cmd = s:getDapsCmd({ 'dc_file': s:getDCfile(), 'build_target': a:target })
+    " assemble daps cmdline
+    let cmd = s:getDapsCmd({ 'dc_file': s:getDCfile(), 'build_target': s:getBuildTarget() })
     call s:dbg('dapscmd -> ' . cmd)
     " run dapscmd in a terminal window
     let term_buf_no = s:RunCmdTerm(cmd, 'daps', 'BuildTarget_cb')
@@ -516,7 +574,7 @@ function s:DapsBuildXmlFile()
   " save the active buffer to disk
   silent write
   let cmd = s:getDapsCmd({ 'xml_file': xml_file, 'build_target': 'html', 'options': [ '--single', '--norefcheck']})
-  let s:DapsBuildTarget = 'html'
+  let s:daps_build_target = 'html'
   let term_buf_no = s:RunCmdTerm(cmd, 'daps', 'BuildTarget_cb')
 endfunction
 
@@ -532,14 +590,14 @@ function BuildTarget_cb(job, exit_status)
   " read the last line of the terminal
   let target_dir = getbufoneline(term_buf_no, '$')
   call s:dbg('term_last_line -> ' . target_dir)
-  if s:DapsBuildTarget == 'html'
+  if s:daps_build_target == 'html'
     let target_file = target_dir . 'index.html'
   else
     let target_file = target_dir
   endif
   call s:dbg('target_file -> ' . target_file)
-  if exists("g:daps_" . s:DapsBuildTarget . "_viewer")
-    let doc_viewer = g:daps_{s:DapsBuildTarget}_viewer
+  if exists("g:daps_" . s:daps_build_target . "_viewer")
+    let doc_viewer = g:daps_{s:daps_build_target}_viewer
     let cmd = doc_viewer . ' ' . target_file
   else
     let cmd = 'xdg-open ' . target_file
