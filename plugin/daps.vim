@@ -126,7 +126,7 @@ function s:Init()
   let b:daps_debug = get(g:, 'daps_debug', 0)
   if b:daps_debug == 1
     let b:daps_log_file = get(g:, 'daps_log_file')
-  " check if file exists and is writable, or try to create an empty one
+    " check if file exists and is writable, or try to create an empty one
     try
       call writefile(["Start of a new round", "********************"], b:daps_log_file, 'a')
     catch
@@ -149,6 +149,7 @@ function s:Init()
   let b:daps_xmlformat_conf = get(g:, 'daps_xmlformat_conf', '/etc/daps/docbook-xmlformat.conf')
   let b:daps_dc_file = get(g:, 'daps_dc_file')
   let b:daps_root_id = get(g:, 'daps_root_id')
+  let b:daps_build_target = get(g:, 'daps_build_target')
   call s:DapsSetDoctype()
 
   " decide whether to read the xml/schemas.xml file for DocType
@@ -214,9 +215,10 @@ endfunction
 " import all XML IDs given a DC-file
 function s:DapsImportXmlIds()
   call s:dbg('# # # # # ' . expand('<sfile>') . ' # # # # #')
-  if !empty(s:getDCfile())
+  let dc_file = s:getDCfile()
+  if !empty(dc_file)
     " grep MAIN file out of the DC-file
-    let main_file = matchstr(system('grep "^\s*MAIN=" ' . b:daps_dc_file), '"\zs[^"]\+\ze"')
+    let main_file = matchstr(system('grep "^\s*MAIN=" ' . dc_file), '"\zs[^"]\+\ze"')
     call s:dbg('main file -> ' . main_file)
     let xsltproc_cmd = 'xsltproc --xinclude ' . exists(b:daps_dapsroot) ? b:daps_dapsroot : '/usr/share/daps' . '/daps-xslt/common/get-all-xmlids.xsl xml/' . main_file
     call s:dbg('xsltproc_cmd -> ' . xsltproc_cmd)
@@ -266,23 +268,23 @@ endfunction
 " set current buffer's build target
 function s:DapsSetBuildTarget(build_target)
   call s:dbg('# # # # # ' . expand('<sfile>') . ' # # # # #')
-    "set build target for the current buffer
-    let b:daps_build_target = a:build_target
-    "define script-wide variable for detached terminal
-    let s:daps_build_target = a:build_target
-    "if not already specified, set build target globally so that new buffers inherit it
-    if !exists("g:daps_build_target")
-      let g:daps_build_target = b:daps_build_target
-      call s:dbg('g:daps_build_target -> ' . g:daps_build_target)
-    endif
-    return b:daps_build_target
+  "set build target for the current buffer
+  let b:daps_build_target = a:build_target
+  "define script-wide variable for detached terminal
+  let s:daps_build_target = a:build_target
+  "if not already specified, set build target globally so that new buffers inherit it
+  if !exists("g:daps_build_target")
+    let g:daps_build_target = b:daps_build_target
+    call s:dbg('g:daps_build_target -> ' . g:daps_build_target)
+  endif
+  return b:daps_build_target
 endfunction
 
 "set --rootid for the current buffer
 function s:DapsSetRootId(root_id)
   call s:dbg('# # # # # ' . expand('<sfile>') . ' # # # # #')
   let b:daps_root_id = a:root_id
-    call s:dbg('b:daps_root_id -> ' . b:daps_root_id)
+  call s:dbg('b:daps_root_id -> ' . b:daps_root_id)
   return b:daps_root_id
 endfunction
 
@@ -310,8 +312,9 @@ function s:DapsOpenTarget(...)
     endif
   endif
   if !empty(rootid)
-    if !empty(s:getDCfile())
-      let file_cmd = b:daps_dapscmd . ' -d ' . b:daps_dc_file . ' list-file --rootid=' . rootid . ' 2> /dev/null'
+    let dc_file = s:getDCfile()
+    if !empty(dc_file)
+      let file_cmd = b:daps_dapscmd . ' -d ' . dc_file . ' list-file --rootid=' . rootid . ' 2> /dev/null'
       call s:dbg('file_cmd => ' . file_cmd)
       let file = systemlist(file_cmd)[0]
       if filereadable(file)
@@ -351,9 +354,10 @@ function s:DapsOpenReferers(...)
     endif
   endif
 
-  if !empty(s:getDCfile())
+  let dc_file = s:getDCfile()
+  if !empty(dc_file)
     " get list of XML files for a given DC file
-    let cmd = b:daps_dapscmd . " -d " . b:daps_dc_file . " list-srcfiles --xmlonly"
+    let cmd = b:daps_dapscmd . " -d " . dc_file . " list-srcfiles --xmlonly"
     call s:dbg("ListXMLfiles cmd -> " . cmd)
     let files = join(systemlist(cmd), ' ')
     call s:dbg("Num of XML files -> " . len(split(files, '\s')))
@@ -548,19 +552,19 @@ function s:DapsStylecheck()
   endif
 endfunction
 
-" builds the current chapter
+" general build command
 function s:DapsBuild(build_target='')
   call s:dbg('# # # # # ' . expand('<sfile>') . ' # # # # #')
   call s:dbg('a:build_target -> ' . a:build_target)
   "if target is specified, set it as default for this buffer
   if !empty(a:build_target)
-  call s:dbg('a:build_target -> ' . a:build_target)
     call s:DapsSetBuildTarget(a:build_target)
   endif
-  if !empty(s:getDCfile())
+  let dc_file = s:getDCfile()
+  if !empty(dc_file)
     " assemble daps cmdline
-    let cmd = s:getDapsCmd({ 'dc_file': s:getDCfile(), 'build_target': s:getBuildTarget() })
-    call s:dbg('dapscmd -> ' . cmd)
+    let cmd = s:getDapsCmd({ 'dc_file': dc_file, 'build_target': s:getBuildTarget() })
+    call s:dbg('daps cmdline -> ' . cmd)
     " run dapscmd in a terminal window
     let term_buf_no = s:RunCmdTerm(cmd, 'daps', 'BuildTarget_cb')
   endif
@@ -788,15 +792,14 @@ function s:getDapsCmd(params)
     call add(daps_cmd, a:params['cmd'])
   elseif exists("a:params['build_target']") && !empty(a:params['build_target'])
     call add(daps_cmd, a:params['build_target'])
-  endif
-  if exists("b:daps_root_id") && !empty(b:daps_root_id)
-    call add(daps_cmd, '--rootid ' . b:daps_root_id)
+    if exists("b:daps_root_id") && !empty(b:daps_root_id)
+      call add(daps_cmd, '--rootid ' . b:daps_root_id)
+    endif
   endif
   if exists("a:params['options']") && !empty(a:params['options'])
     call add(daps_cmd, join(a:params['options'], ' '))
   endif
   let cmd = join(daps_cmd, ' ')
-  call s:dbg('daps cmd -> ' . cmd)
   return cmd
 endfunction
 
