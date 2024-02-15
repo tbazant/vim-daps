@@ -52,19 +52,16 @@ Commands:
   Check the current buffer's DocBook and content style, then displays
   error messages in a quickfix window.
 
-:DapsOpenTarget <target_id>
-  Opens a new tab with a file that contains the specified xml:id. You can
-  specify the ID in the command line with tab-completion, or place a cursor
-  on a <xref> line and the ID will be read for you. If the current line
-  contains <link xlink:href=", the URL is opened in a Web browser window.
-  If both <xref> and <link> are on the current line, both the referenced
-  file is opene in a new tab, and the URL in a browser.
+:DapsOpenTarget <xml_id>
+  Opens new tabs with files that contain the specified xml:id. You can specify
+  the ID in the command line with tab-completion, or place a cursor on a <xref>
+  line and the ID will be extracted for you.
 
 :DapsOpenReferers <xml_id>
-  Opens a quickfix window with list of all files and exact line numbers
-  that refer to the specified XML ID. If the cursor is currently on a line
-  containing xml:id="<xml_id>" and you do not specify the XML ID on the
-  command line, it is extracter from the current line instead.
+  Opens new tabs with files that refer to the specified xml:id. If the cursor
+  is currently on a line containing xml:id="<xml_id>" and you do not specify
+  the XML ID on the command line, it is extracter from the current line
+  instead.
 
 :DapsImportXmlIds
   Imports XML IDs from the current book/bookset based on a provided DC file.

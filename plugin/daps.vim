@@ -291,40 +291,30 @@ endfunction
 " implement `daps list-file`
 function s:DapsOpenTarget(...)
   call s:dbg('# # # # # ' . expand('<sfile>') . ' # # # # #')
+  "check if XML ID was provided via cmdline
   if a:0 > 0
-    " check if XML ID was provided via cmdline
-    call s:dbg("XML ID supplied on the command line -> " . a:1)
-    let rootid = a:1
+    "xml_id was provided via cmdline
+    let xml_id = a:1
+    call s:dbg("xml_id from cmdline -> " . xml_id)
   else
     " check if cursor is on '<xref linkend=""' line and use as a --rootid
-    let rootid = matchstr(getline("."), '\c linkend=\([''"]\)\zs.\{-}\ze\1')
-    call s:dbg('rootid -> ' . rootid)
-    " check if cursor is on '<link xlink:href=""' line
-    let href = matchstr(getline("."), '\c xlink:href=\([''"]\)\zs.\{-}\ze\1')
-    call s:dbg('href -> ' . href)
-    if !empty(href)
-      if exists("g:daps_html_viewer")
-        execute '! (' . g:daps_html_viewer . ' ' . href . ')'
-      else
-        execute '! (xdg-open ' . href . ')'
-      endif
-      redraw!
-    endif
+    let xml_id = matchstr(getline("."), '\c linkend=\([''"]\)\zs.\{-}\ze\1')
+    call s:dbg('xml_id from <xref/> line -> ' . xml_id)
   endif
-  if !empty(rootid)
-    let dc_file = s:getDCfile()
-    if !empty(dc_file)
-      let file_cmd = b:daps_dapscmd . ' -d ' . dc_file . ' list-file --rootid=' . rootid . ' 2> /dev/null'
-      call s:dbg('file_cmd => ' . file_cmd)
-      let file = systemlist(file_cmd)[0]
-      if filereadable(file)
-        " open the file in a new tab and point cursor on the correct line
-        execute 'tabnew ' .file
-        call search('id=[''"]' . rootid . '[''"]','w')
-      else
-        echoerr rootid . ' not found in any file.'
-      endif
+  if !empty(xml_id)
+    let cmd = 'grep -n xml:id=\"' . xml_id . '\" */*.xml'
+    call s:dbg('cmd => ' . cmd)
+    let output = systemlist(cmd)
+    if len(output) == 0
+      echom "No file contains the refered xml:id '" . xml_id . "'"
+    else
+      for line in output
+        let line_arr = split(line,":")
+        execute 'tabnew ' . line_arr[0] | execute 'normal ' . line_arr[1] . 'G'
+      endfor
     endif
+  else
+    echom "No linkend xml:id specified"
   endif
 endfunction
 
@@ -340,50 +330,29 @@ endfunction
 " find pages which refer to provided xml:id via <xref linkend>
 function s:DapsOpenReferers(...)
   call s:dbg('# # # # # ' . expand('<sfile>') . ' # # # # #')
+  " check if XML ID was provided via cmdline
   if a:0 > 0
-    " check if XML ID was provided via cmdline
-    call s:dbg("XML ID supplied on the command line -> " . a:1)
-    let xmlid = a:1
+    let xml_id = a:1
+    call s:dbg("xml_id from cmdline -> " . xml_id)
   else
     " check if cursor is on 'id=""' line and grep the XML ID from there
-    let xmlid = matchstr(getline("."), '\c xml:id=\([''"]\)\zs.\{-}\ze\1')
-    call s:dbg("XML ID read from the current line -> " . xmlid)
-    if empty(xmlid)
-      echoerr "No XML ID specified"
-      return 1
-    endif
+    let xml_id = matchstr(getline("."), '\c xml:id=\([''"]\)\zs.\{-}\ze\1')
+    call s:dbg('xml_id from <xref/> line -> ' . xml_id)
   endif
-
-  let dc_file = s:getDCfile()
-  if !empty(dc_file)
-    " get list of XML files for a given DC file
-    let cmd = b:daps_dapscmd . " -d " . dc_file . " list-srcfiles --xmlonly"
-    call s:dbg("ListXMLfiles cmd -> " . cmd)
-    let files = join(systemlist(cmd), ' ')
-    call s:dbg("Num of XML files -> " . len(split(files, '\s')))
-    let cmd = "grep -in 'linkend=\"" . xmlid . "\"' " . files
-    call s:dbg("grepXMLids cmd -> " . cmd)
-    let result = systemlist(cmd)
-    call s:dbg("Num of occurences -> " . len(result))
-    " create a quickfixlist from grep results
-    if !empty(result)
-      let qflist = []
-      let id = 1
-      for line in result
-        let sl = split(line, ':')
-        call add(qflist, {
-              \ 'filename': sl[0],
-              \ 'lnum': sl[1],
-              \ 'text': sl[2],
-              \})
-        let id += 1
-      endfor
-      call setqflist(qflist)
-      execute 'copen'
+  if !empty(xml_id)
+    let cmd = 'grep -n linkend=\"' . xml_id . '\" */*.xml'
+    call s:dbg('cmd => ' . cmd)
+    let output = systemlist(cmd)
+    if len(output) == 0
+      echom "No file refers to xml:id '" . xml_id . "'"
     else
-      echom "No '" . xmlid . "' occurence found in XML files"
-      execute 'cclose'
+      for line in output
+        let line_arr = split(line,":")
+        execute 'tabnew ' . line_arr[0] | execute 'normal ' . line_arr[1] . 'G'
+      endfor
     endif
+  else
+    echom "No xml:id specified"
   endif
 endfunction
 
@@ -405,7 +374,7 @@ endfunction
 " discover DC file
 function s:getDCfile()
   call s:dbg('# # # # # ' . expand('<sfile>') . ' # # # # #')
-  if exists("b:daps_dc_file")
+  if exists("b:daps_dc_file") && !empty(b:daps_dc_file)
     call s:dbg('Buffer DC file -> ' . b:daps_dc_file)
     return b:daps_dc_file
   else
@@ -790,6 +759,9 @@ function s:getDapsCmd(params)
   endif
   if exists("a:params['cmd']") && !empty(a:params['cmd'])
     call add(daps_cmd, a:params['cmd'])
+    if exists("a:params['rootid']") && !empty(a:params['rootid'])
+      call add(daps_cmd, '--rootid ' . a:params['rootid'])
+    endif
   elseif exists("a:params['build_target']") && !empty(a:params['build_target'])
     call add(daps_cmd, a:params['build_target'])
     if exists("b:daps_root_id") && !empty(b:daps_root_id)
