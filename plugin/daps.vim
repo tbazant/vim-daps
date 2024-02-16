@@ -208,7 +208,7 @@ endfunction
 " list all <xref>s' IDs from the current buffer
 function s:ListXrefTargets(A,L,P)
   call s:dbg('# # # # # ' . expand('<sfile>') . ' # # # # #')
-  let cmd = 'xsltproc ' . exists(b:daps_dapsroot) ? b:daps_dapsroot : '/usr/share/daps'. '/tools/get-all-xrefsids.xsl ' . expand('%') . ' | sort -u'
+  let cmd = 'xsltproc ' . s:plugindir . '/tools/get-all-xrefsids.xsl ' . expand('%') . ' | sort -u'
   return system(cmd)
 endfunction
 
@@ -220,7 +220,8 @@ function s:DapsImportXmlIds()
     " grep MAIN file out of the DC-file
     let main_file = matchstr(system('grep "^\s*MAIN=" ' . dc_file), '"\zs[^"]\+\ze"')
     call s:dbg('main file -> ' . main_file)
-    let xsltproc_cmd = 'xsltproc --xinclude ' . exists(b:daps_dapsroot) ? b:daps_dapsroot : '/usr/share/daps' . '/daps-xslt/common/get-all-xmlids.xsl xml/' . main_file
+    let dapsroot = exists(b:daps_dapsroot) ? b:daps_dapsroot : '/usr/share/daps'
+    let xsltproc_cmd = 'xsltproc --xinclude ' . dapsroot . '/daps-xslt/common/get-all-xmlids.xsl xml/' . main_file
     call s:dbg('xsltproc_cmd -> ' . xsltproc_cmd)
     let g:xmldata_{b:doctype}.xref[1].linkend = sort(systemlist(xsltproc_cmd))
   endif
@@ -322,7 +323,8 @@ endfunction
 function s:ListXmlIds(A,L,P)
   call s:dbg('# # # # # ' . expand('<sfile>') . ' # # # # #')
   " get list of XML IDs in the current file
-  let xmlids = system('xsltproc ' . exists(b:daps_dapsroot) ? b:daps_dapsroot : '/usr/share/daps' . '/daps-xslt/common/get-all-xmlids.xsl ' . expand('%'))
+  let dapsroot = exists(b:daps_dapsroot) ? b:daps_dapsroot : '/usr/share/daps'
+  let xmlids = system('xsltproc ' . dapsroot . '/daps-xslt/common/get-all-xmlids.xsl ' . expand('%'))
   call s:dbg('Num of XML IDs -> ' . len(xmlids))
   return xmlids
 endfunction
@@ -661,7 +663,8 @@ function s:DapsImportEntities(...)
       return
     endif
     " no arg given, try daps' getentityname.py
-    let getentityname = exists(b:daps_dapsroot) ? b:daps_dapsroot : '/usr/share/daps' . '/libexec/getentityname.py'
+    let dapsroot = exists(b:daps_dapsroot) ? b:daps_dapsroot : '/usr/share/daps'
+    let getentityname = dapsroot . '/libexec/getentityname.py'
     call s:dbg('getentityname -> ' . getentityname)
     let ent_str = substitute(system(getentityname . ' ' . expand('%:p')), '\n\+$', '', '')
     call s:dbg('ent_str -> ' . ent_str)
