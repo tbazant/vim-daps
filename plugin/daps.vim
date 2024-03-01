@@ -43,7 +43,7 @@ endif
 
 " set --rootid for the current buffer
 if !exists(":DapsSetRootId")
-  command -nargs=1 DapsSetRootId :call s:DapsSetRootId(<f-args>)
+  command -nargs=* DapsSetRootId :call s:DapsSetRootId(<f-args>)
 endif
 
 " set DocType (version) for DocBook (and derived) documents
@@ -128,7 +128,8 @@ function s:Init()
     let b:daps_log_file = get(g:, 'daps_log_file')
     " check if file exists and is writable, or try to create an empty one
     try
-      call writefile(["Start of a new round", "********************"], b:daps_log_file, 'a')
+      let buffer_filename = expand("%")
+      call writefile([ repeat('*', len(buffer_filename)) , buffer_filename, repeat('*', len(buffer_filename))], b:daps_log_file, 'a')
     catch
       echoerr "Error creating the file: " . v:exception
     endtry
@@ -237,6 +238,16 @@ function s:AskForDCFile()
   return s:DapsSetDCfile(dc_file)
 endfunction
 
+" ask for root ID
+function s:AskForRootId()
+  call s:dbg('# # # # # ' . expand('<sfile>') . ' # # # # #')
+  call inputsave()
+  let root_id = input("Enter root ID: ", "", "custom,s:ListXmlIds")
+  call inputrestore()
+  redrawstatus
+  return s:DapsSetRootId(root_id)
+endfunction
+
 " ask for build target
 function s:AskForBuildTarget()
   call s:dbg('# # # # # ' . expand('<sfile>') . ' # # # # #')
@@ -282,11 +293,16 @@ function s:DapsSetBuildTarget(build_target)
 endfunction
 
 "set --rootid for the current buffer
-function s:DapsSetRootId(root_id)
+function s:DapsSetRootId(root_id = "")
   call s:dbg('# # # # # ' . expand('<sfile>') . ' # # # # #')
-  let b:daps_root_id = a:root_id
-  call s:dbg('b:daps_root_id -> ' . b:daps_root_id)
-  return b:daps_root_id
+  if empty(a:root_id)
+    call s:dbg('Purging b:daps_root_id...')
+    unlet b:daps_root_id
+  else
+    let b:daps_root_id = a:root_id
+    call s:dbg('b:daps_root_id -> ' . b:daps_root_id)
+    return b:daps_root_id
+  endif
 endfunction
 
 " implement `daps list-file`
@@ -394,6 +410,24 @@ function s:getBuildTarget()
   else
     call s:dbg('Asking the user for build target')
     return s:AskForBuildTarget()
+  endif
+endfunction
+
+" discover root ID, asking for it with prompt if required
+function s:getRootId(ask = 0)
+  call s:dbg('# # # # # ' . expand('<sfile>') . ' # # # # #')
+  "first try if the current line has xml:id
+  let xml_id = matchstr(getline("."), '\c xml:id=\([''"]\)\zs.\{-}\ze\1')
+  if !empty(xml_id)
+    call s:dbg('root ID from xml:id line -> ' . xml_id)
+    call s:DapsSetRootId(xml_id)
+    return xml_id
+  "secondly, look if root_id it was already set
+  elseif exists("b:daps_root_id") && !empty(b:daps_root_id)
+    call s:dbg('Buffer root ID -> ' . b:daps_root_id)
+    return b:daps_root_id
+  elseif a:ask == 1
+    let root_id = s:AskForRootId()
   endif
 endfunction
 
@@ -524,17 +558,22 @@ function s:DapsStylecheck()
 endfunction
 
 " general build command
-function s:DapsBuild(build_target='')
+function s:DapsBuild(build_target = "", root_id = "")
   call s:dbg('# # # # # ' . expand('<sfile>') . ' # # # # #')
   call s:dbg('a:build_target -> ' . a:build_target)
   "if target is specified, set it as default for this buffer
   if !empty(a:build_target)
     call s:DapsSetBuildTarget(a:build_target)
   endif
+  call s:dbg('a:root_id -> ' . a:root_id)
+  "if root_id is specified, set it as default for this buffer
+  if !empty(a:root_id)
+    call s:DapsSetRootId(a:root_id)
+  endif
   let dc_file = s:getDCfile()
   if !empty(dc_file)
     " assemble daps cmdline
-    let cmd = s:getDapsCmd({ 'dc_file': dc_file, 'build_target': s:getBuildTarget() })
+    let cmd = s:getDapsCmd({ 'dc_file': dc_file, 'build_target': s:getBuildTarget(), 'root_id': s:getRootId() })
     call s:dbg('daps cmdline -> ' . cmd)
     " run dapscmd in a terminal window
     let term_buf_no = s:RunCmdTerm(cmd, 'daps', 'BuildTarget_cb')

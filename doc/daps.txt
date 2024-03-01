@@ -43,7 +43,8 @@ Commands:
   ships with 'docbook50' (default), and 'geekodoc5'.
 
 :DapsSetRootId <root_id>
-  Specifies the optional --rootid parameter.
+  Specifies the optional --rootid parameter. If the optional parameter is
+  missing, unsets the root ID.
 
 :DapsSetBuildTarget <build_target>
   Specifies the build target, 'html' or 'pdf'.
