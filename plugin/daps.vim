@@ -114,13 +114,6 @@ endif
 
 " read g:daps_* variables from ~/.vimrc and set buffer-wide defaults
 function s:Init()
-  " fill the  DB schema resolving hash
-  let g:daps_db_schema = {
-        \'https://github.com/openSUSE/geekodoc/raw/main/geekodoc/rng/geekodoc5-flat.rng': 'geekodoc5',
-        \'http://www.oasis-open.org/docbook/xml/5.0/rng/docbook.rng': 'docbook50',
-        \'http://www.oasis-open.org/docbook/xml/5.1/rng/docbook.rng': 'docbook51',
-        \'http://www.oasis-open.org/docbook/xml/5.2/rng/docbook.rng': 'docbook52',
-        \}
 
   "   L   O   G   G   I   N   G
   let b:daps_debug = get(g:, 'daps_debug', 0)
@@ -151,25 +144,9 @@ function s:Init()
   let b:daps_dc_file = get(g:, 'daps_dc_file')
   let b:daps_root_id = get(g:, 'daps_root_id')
   let b:daps_build_target = get(g:, 'daps_build_target')
+  let b:daps_xml_schema_map = get(g:, 'daps_xml_schema_map')
+  let b:daps_doctype = get(g:, 'daps_doctype', 'docbook52')
   call s:DapsSetDoctype()
-
-  " decide whether to read the xml/schemas.xml file for DocType
-  if exists("g:daps_xmlschemas_autostart")
-    if g:daps_xmlschemas_autostart == 1
-      let x_schema = s:DapsLookupSchemasXML()
-      if !empty(x_schema)
-        " find the right doctype accross URI
-        for [key, value] in items(g:daps_db_schema)
-          let schema_file = systemlist('xmlcatalog /etc/xml/catalog ' . key)[0]
-          if schema_file == x_schema
-            call s:DapsSetDoctype(value)
-            break
-          endif
-        endfor
-      endif
-    endif
-  endif
-
 endfunction
 
 function s:dbg(msg)
@@ -224,7 +201,7 @@ function s:DapsImportXmlIds()
     let dapsroot = exists(b:daps_dapsroot) ? b:daps_dapsroot : '/usr/share/daps'
     let xsltproc_cmd = 'xsltproc --xinclude ' . dapsroot . '/daps-xslt/common/get-all-xmlids.xsl xml/' . main_file
     call s:dbg('xsltproc_cmd -> ' . xsltproc_cmd)
-    let g:xmldata_{b:doctype}.xref[1].linkend = sort(systemlist(xsltproc_cmd))
+    let g:xmldata_{b:daps_doctype}.xref[1].linkend = sort(systemlist(xsltproc_cmd))
   endif
 endfunction
 
@@ -377,16 +354,32 @@ endfunction
 " set doctype for DB documents
 function s:DapsSetDoctype(...)
   call s:dbg('# # # # # ' . expand('<sfile>') . ' # # # # #')
-  if a:0 == 0
-    call s:dbg("doctype is not specified, trying .vimrc or taking default")
-    let b:doctype = get(g:, 'daps_doctype', 'docbook52')
-  else
-    call s:dbg("doctype specified on the cmdline, taking that")
-    let b:doctype = a:1
+  if exists("a:1") && !empty(a:1)
+    call s:dbg("doctype specified on the cmdline")
+    let b:daps_doctype = a:1
+    call s:dbg("doctype -> " . b:daps_doctype)
+    call xmlcomplete#CreateConnection(b:daps_doctype)
+    call s:DapsImportEntities()
+    return b:daps_doctype
+  elseif !empty(b:daps_xml_schema_map)
+    call s:dbg("daps_xml_schema_map is not empty, trying to resolve doctype from that")
+    for key in keys(b:daps_xml_schema_map)
+      if bufname('%') =~ '\v.*' . key . '$'
+        call s:dbg("key -> " . key)
+        let b:daps_doctype = b:daps_xml_schema_map[key]
+        call s:dbg("doctype -> " . b:daps_doctype)
+        call xmlcomplete#CreateConnection(b:daps_doctype)
+        call s:DapsImportEntities()
+        return b:daps_doctype
+      endif
+    endfor
+  elseif !empty(b:daps_doctype)
+    call s:dbg("daps_doctype specified in .vimrc")
+    call s:dbg("doctype -> " . b:daps_doctype)
+    call xmlcomplete#CreateConnection(b:daps_doctype)
+    call s:DapsImportEntities()
+    return b:daps_doctype
   endif
-  call s:dbg("doctype -> " . b:doctype)
-  call xmlcomplete#CreateConnection(b:doctype)
-  call s:DapsImportEntities()
 endfunction
 
 " discover DC file
@@ -735,28 +728,13 @@ function s:DapsImportEntities(...)
       endif
     endfor
     " assing docbk_entity vriable with new content
-    call s:dbg('b:doctype -> ' . b:doctype)
-    let g:xmldata_{b:doctype}['vimxmlentities'] += list
+    call s:dbg('b:daps_doctype -> ' . b:daps_doctype)
+    let g:xmldata_{b:daps_doctype}['vimxmlentities'] += list
   endfor
-  let sorted = sort(copy(g:xmldata_{b:doctype}['vimxmlentities']))
-  let g:xmldata_{b:doctype}['vimxmlentities'] = copy(sorted)
+  let sorted = sort(copy(g:xmldata_{b:daps_doctype}['vimxmlentities']))
+  let g:xmldata_{b:daps_doctype}['vimxmlentities'] = copy(sorted)
   unlet sorted
   unlet line
-endfunction
-
-" lookup doctype info from xml/schemas.xml file
-function s:DapsLookupSchemasXML()
-  call s:dbg('# # # # # ' . expand('<sfile>') . ' # # # # #')
-  " test for the xml/schemas.xml file
-  if filereadable('xml/schemas.xml')
-    let x_query = '/t:locatingRules/t:uri/@uri'
-    let x_cmd = "xmlstarlet sel -T -N t='http://thaiopensource.com/ns/locating-rules/1.0' -t -v '" . x_query . "' xml/schemas.xml"
-    let x_result = systemlist(x_cmd)[0]
-    call s:dbg('xquery result -> ' . x_result)
-    if filereadable(x_result)
-      return x_result
-    endif
-  endif
 endfunction
 
 " compares priority of style check results

@@ -1,18 +1,19 @@
 *daps.txt* Plugin for using daps (https://opensuse.github.io/daps) commands inside Vim.
 
                                                            *daps-installation*
-I recommend using a plugin manager such as vim-plug (https://github.com/junegunn/vim-plug)
-to install and update vim-daps.
-If you do not want to use a plugin manager, download and uncompress the tarball into
-your ~/.vim/plugin directory.
+I recommend using a plugin manager such as vim-plug
+(https://github.com/junegunn/vim-plug) to install and update vim-daps.  If you
+do not want to use a plugin manager, download and uncompress the tarball into
+  your ~/.vim/plugin directory.
 
                                                            *daps-requirements*
-You need to have daps (https://opensuse.github.io/daps) installed to use vim-daps
-commands in your Vim editor.
+You need to have daps (https://opensuse.github.io/daps) installed to use
+vim-daps commands in your Vim editor.
 
 Note:
 Before using any of vim-daps commands, you first have to specify which DC file
-you are going to use in the current buffer with the :DapsSetDCfile <DC-file> command.
+you are going to use in the current buffer with the :DapsSetDCfile <DC-file>
+command.
 
 Commands:
 :DapsSetDCfile <dc-file>
@@ -99,38 +100,40 @@ g:daps_pdf_viewer = <command>
   Set the default application for viewing PDF output. Default is the desktop
   environment's MIME handler.
 
-g:daps_xmlschemas_autostart = 0 or 1
-  If set to 1, looks for the 'xml/schemas.xml' file and parses the DocBook schema URI
-  from it, possibly overriding the 'g:daps_doctype' setting. Default is 0.
-
 g:daps_builddir = <directory>
-  Set the --builddir directory for the current buffer. Default is the 'build/' subdirectory
-  of the current directory.
+  Set the --builddir directory for the current buffer. Default is the 'build/'
+  subdirectory of the current directory.
 
 g:daps_auto_import_xmlids = 0 or 1
   Whether or not import all the XML IDs related for the current DC file
   to XML omnicompletion after a DC file is specified. Default is 1.
 
 g:daps_dapsroot = <directory>
-  Use daps from a git checkout directory instead of the default RPM installation.
-  This option is useful if you want to try the development version of daps.
+  Use daps from a git checkout directory instead of the default RPM
+  installation.  This option is useful if you want to try the development
+  version of daps.
 
 g:daps_debug = 0 or 1
-  Set this to output debug messages, either to an editor windowm, or a file specified with
-  'g:daps_log_file'
+  Set this to output debug messages, either to an editor windowm, or a file
+  specified with 'g:daps_log_file'
 
 g:daps_log_file = <log_file_name>
-  The file name of a file where to output debug messages. Note that 'g:daps_debug' must
-  be set to '1'
+  The file name of a file where to output debug messages. Note that
+  'g:daps_debug' must be set to '1'
 
 g:daps_xmlformat_script = <path_to_script>
   The file name of the executable script that formats the XML source document.
   Defaults to 'xmlformat' or 'xmlformat.pl' if found in the path.
 
 g:daps_xmlformat_conf = <path_to_conffile>
-  The file name of the configuration file for 'xmlformat'. Defaults to
-  the one provided by daps.
+  The file name of the configuration file for 'xmlformat'. Defaults to the one
+  provided by daps.
 
 g:daps_stylecheck_qfwindow = 0 or 1
   Whether to open a quick fix window on style check. By default, both quick fix
   window is opened and the signs are placed in the document.
+
+g:daps_xml_schema_map = { suffix1: doctype1, suffix2: doctype2, ... }
+  Specifies the doctype mapping based on the active file name suffix.
+
+    let daps_xml_schema_map = { '.asm.xml': 'assembly', '.xml': 'geekodoc5' }
