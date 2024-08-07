@@ -50,10 +50,6 @@ Commands:
 :DapsSetBuildTarget <build_target>
   Specifies the build target, 'html' or 'pdf'.
 
-:DapsStylecheck
-  Check the current buffer's DocBook and content style, then displays
-  error messages in a quickfix window.
-
 :DapsOpenTarget <xml_id>
   Opens new tabs with files that contain the specified xml:id. You can specify
   the ID in the command line with tab-completion, or place a cursor on a <xref>
@@ -128,10 +124,6 @@ g:daps_xmlformat_script = <path_to_script>
 g:daps_xmlformat_conf = <path_to_conffile>
   The file name of the configuration file for 'xmlformat'. Defaults to the one
   provided by daps.
-
-g:daps_stylecheck_qfwindow = 0 or 1
-  Whether to open a quick fix window on style check. By default, both quick fix
-  window is opened and the signs are placed in the document.
 
 g:daps_xml_schema_map = { suffix1: doctype1, suffix2: doctype2, ... }
   Specifies the doctype mapping based on the active file name suffix.

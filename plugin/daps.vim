@@ -61,11 +61,6 @@ if !exists(":DapsValidate")
   command -nargs=0 DapsValidate :call s:DapsValidate(<f-args>)
 endif
 
-" daps stylecheck
-if !exists(":DapsStylecheck")
-  command -nargs=0 DapsStylecheck :call s:DapsStylecheck(<f-args>)
-endif
-
 " daps xmlformat
 if !exists(":DapsXmlFormat")
   command -nargs=0 DapsXmlFormat call s:DapsXmlFormat(<f-args>)
@@ -134,8 +129,6 @@ function s:Init()
   let b:daps_verbosity_level = get(g:, 'daps_verbosity_level', 2)
   let b:daps_dcfile_glob_pattern = get(g:, 'daps_dcfile_glob_pattern', "DC-")
   let b:daps_entfile_glob_pattern = get(g:, 'daps_entfile_glob_pattern', "*")
-  let b:daps_stylecheck_on_save = get(g:, 'daps_stylecheck_on_save', 0)
-  let b:daps_stylecheck_qfwindow = get(g:, 'daps_stylecheck_qfwindow', 1)
   let b:daps_builddir = get(g:, 'daps_builddir', getcwd() . '/build/')
   let b:daps_styleroot = get(g:, 'daps_styleroot')
   let b:daps_auto_import_xmlids = get(g:, 'daps_auto_import_xmlids', 1)
@@ -488,66 +481,6 @@ function ValidateQuickfix_cb(job, exit_status)
   endfor
   call setqflist(qflist)
   execute 'cwindow'
-endfunction
-
-" daps style check
-function s:DapsStylecheck()
-  call s:dbg('# # # # # ' . expand('<sfile>') . ' # # # # #')
-  " erase all signs and underlinings
-  call clearmatches()
-  execute 'cclose'
-  execute 'sign unplace *'
-  " check for 'vale' binary
-  if !executable('vale')
-    echoe "Command 'vale' was not found"
-    return 1
-  endif
-  "save the current  buffer to disk
-  write
-  " remember current path, find the path of the active file and cd to that dir
-  let cwd = getcwd()
-  let current_file_dir = expand('%:h')
-  exe "lcd " . current_file_dir
-  let current_file_path = expand('%:t')
-  " compile vale command and run it
-  let vale_cmd = "vale --output " . s:plugindir . "/tools/vale_template --no-wrap --config " . s:plugindir . "/.vale.ini " . current_file_path
-  call s:dbg('vale_cmd -> ' . vale_cmd)
-  silent let output = systemlist(vale_cmd)
-  " remove empty lines from the output
-  call filter(output, 'v:val != ""')
-  " sort the output so that ERRORS are first and SUGGESTIONS last
-  let sorted_output = sort(output, 's:CompareStylePriority')
-  call s:dbg('output -> ' . string(sorted_output))
-  " cd back to cwd
-  exe "lcd " . cwd
-  " define signs for quickfix list
-  let qflist = []
-  let id = 1
-  sign define error text=E
-  sign define warning text=W
-  sign define suggestion text=S
-  if len(sorted_output) > 0
-    for line in sorted_output
-      call s:dbg('line -> ' . string(line))
-      if !empty(line)
-        " get the line array
-        let la = split(trim(line), ':')
-        let item = { 'bufnr': bufnr('%'), 'lnum': la[1], 'col': la[2], 'type': la[3], 'text': la[5] }
-        call add (qflist, item)
-        execute 'sign place ' . id . ' line=' . la[1] . ' name=' . la[3] . ' file=' . bufname('%')
-        call matchadd('Underlined', '\%' . la[1] . 'l\%' . la[2] . 'c\k\+')
-        let id += 1
-      endif
-    endfor
-    call setqflist(qflist)
-    if g:daps_stylecheck_qfwindow == 1
-      execute 'copen'
-    endif
-  else
-    execute 'cclose'
-    execute 'sign unplace *'
-    echow 'No style mistakes found'
-  endif
 endfunction
 
 " general build command
