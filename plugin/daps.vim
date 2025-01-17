@@ -347,6 +347,13 @@ endfunction
 " set doctype for DB documents
 function s:DapsSetDoctype(...)
   call s:dbg('# # # # # ' . expand('<sfile>') . ' # # # # #')
+  " full path to currently edited file
+  let xml_file = expand('%:p')
+  if !filereadable(xml_file)
+    " do not process virtual fs such as fugitive
+    call s:dbg('Resource is not a local readable file: ' . xml_file)
+    return
+  endif
   if exists("a:1") && !empty(a:1)
     call s:dbg("doctype specified on the cmdline")
     let b:daps_doctype = a:1
@@ -622,16 +629,22 @@ endfunction
 " 2) if no argument is given, run getentityname.py to get the list of files
 function s:DapsImportEntities(...)
   call s:dbg('# # # # # ' . expand('<sfile>') . ' # # # # #')
+  call s:dbg('Number of args passed as entity files: ' . a:0)
   if a:0 == 0
-    " return for fugitive:// paths
-    if expand('%:p') =~ '^fugitive'
+    " no argument was passed, let's extract entity files from the XML file
+    let xml_file = expand('%:p')
+    if !filereadable(xml_file)
+      " do not import entities from virtual fs such as fugitive
+      call s:dbg('Resource is not a local readable file: ' . xml_file)
+      call s:dbg('Number of imported entities: ' . len(g:xmldata_{b:daps_doctype}['vimxmlentities']))
       return
     endif
-    " no arg given, try daps' getentityname.py
+    call s:dbg('Resource is a local readable file: ' . xml_file)
     let dapsroot = exists(b:daps_dapsroot) ? b:daps_dapsroot : '/usr/share/daps'
+      call s:dbg('Resource is not a local readable file: ' . xml_file)
     let getentityname = dapsroot . '/libexec/getentityname.py'
     call s:dbg('getentityname -> ' . getentityname)
-    let ent_str = substitute(system(getentityname . ' ' . expand('%:p')), '\n\+$', '', '')
+    let ent_str = substitute(system(getentityname . ' ' . xml_file), '\n\+$', '', '')
     call s:dbg('ent_str -> ' . ent_str)
     let ent_files = split(ent_str, ' ')
     if len(ent_files) == 0
@@ -661,11 +674,11 @@ function s:DapsImportEntities(...)
       endif
     endfor
     " assing docbk_entity vriable with new content
-    call s:dbg('b:daps_doctype -> ' . b:daps_doctype)
     let g:xmldata_{b:daps_doctype}['vimxmlentities'] += list
   endfor
   let sorted = sort(copy(g:xmldata_{b:daps_doctype}['vimxmlentities']))
   let g:xmldata_{b:daps_doctype}['vimxmlentities'] = copy(sorted)
+  call s:dbg('Number of imported entities: ' . len(g:xmldata_{b:daps_doctype}['vimxmlentities']))
   unlet sorted
   unlet line
 endfunction
