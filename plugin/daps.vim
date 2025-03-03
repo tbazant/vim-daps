@@ -741,6 +741,7 @@ function s:getDapsCmd(params)
   return cmd
 endfunction
 
+
 " - - - - - - - - - - - - -  e n d  f u n c t i o n s   - - - - - - - - - - - - "
 
 " restore the value of cpoptions
