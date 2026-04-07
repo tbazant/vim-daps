@@ -155,11 +155,14 @@ endfunction
 " Omnicompletion function for AsciiDoc attributes.
 " Triggered by <C-x><C-o>
 function! s:AsciidocCompleteAttributes(findstart, base)
+  call s:dbg('# # # # # ' . expand('<sfile>') . ' # # # # #')
+  call s:dbg('a:findstart -> ' . a:findstart)
+  call s:dbg('a:base -> ' . a:base)
   if a:findstart
     " Find the start of the attribute name.
     let line = getline('.')
     " Find the opening brace before the cursor.
-    let open_brace_col = match(strpart(line, 0, col('.')), '{\w*$', 0)
+    let open_brace_col = match(strpart(line, 0, col('.')), '{[^}]*$', 0)
     if open_brace_col >= 0
       " Return the column number *after* the brace.
       return open_brace_col + 1
@@ -170,18 +173,21 @@ function! s:AsciidocCompleteAttributes(findstart, base)
     " Find all possible attribute completions.
     let attributes = s:FindAllAttributes()
     " Filter for attributes that contain the typed text (case-insensitive).
-    let filtered_attributes = filter(copy(attributes), 'v:val =~? a:base')
+    let filtered_attributes = filter(copy(attributes), 'stridx(tolower(v:val), tolower(a:base)) != -1')
 
     " Map results to a dictionary to control completion behavior.
     " - 'word': Appends '}' to the inserted text.
     " - 'abbr': Shows only the attribute name in the popup menu.
     let mapped_attributes = map(filtered_attributes, "{'word': v:val . '}', 'abbr': v:val}")
-    return mapped_attributes
+    " Return a dictionary with 'filtered' set to 1. This tells Vim's
+    " completion engine not to apply its own "starts-with" filtering.
+    return {'words': mapped_attributes, 'filtered': 1}
   endif
 endfunction
 
 " Recursively finds all AsciiDoc attributes starting from the current buffer.
 function! s:FindAllAttributes()
+  call s:dbg('# # # # # ' . expand('<sfile>') . ' # # # # #')
   let files_to_process = []
   let processed_files = {}
   let all_attributes = []
@@ -210,11 +216,15 @@ function! s:FindAllAttributes()
   endwhile
 
   " Return unique, sorted attributes.
-  return sort(uniq(all_attributes))
+  let unique_attributes = sort(uniq(all_attributes))
+  call s:dbg('Files processed -> ' . string(keys(processed_files)))
+  call s:dbg('unique_attributes count -> ' . len(unique_attributes))
+  return unique_attributes
 endfunction
 
 " Helper function to parse lines for attributes and includes.
 function! s:ParseAsciidocLines(lines, file_dir, all_attributes, files_to_process, processed_files)
+  call s:dbg('# # # # # ' . expand('<sfile>') . ' # # # # #')
   for line in a:lines
     " Match attributes like :name:
     let attr_match = matchlist(line, '^\s*:\([^:]\+\):')
@@ -226,6 +236,7 @@ function! s:ParseAsciidocLines(lines, file_dir, all_attributes, files_to_process
     let include_match = matchlist(line, '^\s*include::\([^\[]\+\)\[')
     if !empty(include_match)
       let included_path = include_match[1]
+      call s:dbg('Found include -> ' . included_path)
       let full_path = resolve(a:file_dir . '/' . included_path)
       " Add to processing queue if not already seen or queued.
       if !has_key(a:processed_files, full_path) && index(a:files_to_process, full_path) == -1
