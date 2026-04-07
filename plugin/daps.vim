@@ -139,7 +139,100 @@ function s:Init()
   let b:daps_build_target = get(g:, 'daps_build_target')
   let b:daps_xml_schema_map = get(g:, 'daps_xml_schema_map')
   let b:daps_doctype = get(g:, 'daps_doctype', 'docbook52')
-  call s:DapsSetDoctype()
+  if &filetype == 'asciidoc'
+    setlocal omnifunc=s:AsciidocCompleteAttributes
+    " Ensure completion menu appears but does not auto-select the first item.
+    " Ensure completion menu appears, selects the first item, but does not
+    " insert it automatically. This allows for seamless filtering.
+    setlocal completeopt=menuone,noinsert
+  elseif &filetype == 'docbk'
+    call s:DapsSetDoctype()
+  endif
+endfunction
+
+" - - - - - - - - - - - - -  A S C I I D O C   C O M P L E T I O N   - - - - - - - - - - - - "
+
+" Omnicompletion function for AsciiDoc attributes.
+" Triggered by <C-x><C-o>
+function! s:AsciidocCompleteAttributes(findstart, base)
+  if a:findstart
+    " Find the start of the attribute name.
+    let line = getline('.')
+    " Find the opening brace before the cursor.
+    let open_brace_col = match(strpart(line, 0, col('.')), '{\w*$', 0)
+    if open_brace_col >= 0
+      " Return the column number *after* the brace.
+      return open_brace_col + 1
+    else
+      return -1
+    endif
+  else
+    " Find all possible attribute completions.
+    let attributes = s:FindAllAttributes()
+    " Filter for attributes that contain the typed text (case-insensitive).
+    let filtered_attributes = filter(copy(attributes), 'v:val =~? a:base')
+
+    " Map results to a dictionary to control completion behavior.
+    " - 'word': Appends '}' to the inserted text.
+    " - 'abbr': Shows only the attribute name in the popup menu.
+    let mapped_attributes = map(filtered_attributes, "{'word': v:val . '}', 'abbr': v:val}")
+    return mapped_attributes
+  endif
+endfunction
+
+" Recursively finds all AsciiDoc attributes starting from the current buffer.
+function! s:FindAllAttributes()
+  let files_to_process = []
+  let processed_files = {}
+  let all_attributes = []
+
+  " 1. Process the current buffer first.
+  let current_file_path = expand('%:p')
+  if !empty(current_file_path)
+      let processed_files[current_file_path] = 1
+      let file_dir = fnamemodify(current_file_path, ':h')
+  else
+      " For unsaved buffers, includes are relative to the current working directory.
+      let file_dir = getcwd()
+  endif
+  call s:ParseAsciidocLines(getbufline(bufnr('%'), 1, '$'), file_dir, all_attributes, files_to_process, processed_files)
+
+  " 2. Process included files recursively (Breadth-First Search).
+  let current_index = 0
+  while current_index < len(files_to_process)
+    let current_file = files_to_process[current_index]
+    let current_index += 1
+    if has_key(processed_files, current_file) | continue | endif
+    let processed_files[current_file] = 1
+    if !filereadable(current_file) | continue | endif
+    let file_dir = fnamemodify(current_file, ':h')
+    call s:ParseAsciidocLines(readfile(current_file), file_dir, all_attributes, files_to_process, processed_files)
+  endwhile
+
+  " Return unique, sorted attributes.
+  return sort(uniq(all_attributes))
+endfunction
+
+" Helper function to parse lines for attributes and includes.
+function! s:ParseAsciidocLines(lines, file_dir, all_attributes, files_to_process, processed_files)
+  for line in a:lines
+    " Match attributes like :name:
+    let attr_match = matchlist(line, '^\s*:\([^:]\+\):')
+    if !empty(attr_match)
+      call add(a:all_attributes, attr_match[1])
+    endif
+
+    " Match includes like include::path[]
+    let include_match = matchlist(line, '^\s*include::\([^\[]\+\)\[')
+    if !empty(include_match)
+      let included_path = include_match[1]
+      let full_path = resolve(a:file_dir . '/' . included_path)
+      " Add to processing queue if not already seen or queued.
+      if !has_key(a:processed_files, full_path) && index(a:files_to_process, full_path) == -1
+        call add(a:files_to_process, full_path)
+      endif
+    endif
+  endfor
 endfunction
 
 function s:dbg(msg)

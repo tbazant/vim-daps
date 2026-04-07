@@ -12,6 +12,9 @@ highlight link asciidocAttribute PreProc
 " --- Do not spell check inside link:path[] and xref:path[] ---
 syntax region asciidocLinkTarget matchgroup=asciidocLink start=/\v<(link|xref):/ end=/\[/me=s-1,he=s-1 contains=@NoSpell oneline
 
+" --- Do not spell check inside include::path[] ---
+syntax region asciidocIncludeTarget matchgroup=asciidocInclude start=/\v<include::/ end=/\[/me=s-1,he=s-1 contains=@NoSpell oneline
+
 " --- Attribute values (e.g. :foo: bar) ---
 syntax region asciidocAttributeValue start=/^:\k\+:/ end=/$/ contains=@NoSpell oneline
 
