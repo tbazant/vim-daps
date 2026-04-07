@@ -18,7 +18,7 @@ let s:plugindir = resolve(expand('<sfile>:p:h:h'))
 
 " define actions triggered by events
 " read g:daps_* variables from .vimrc and set defaults
-autocmd FileType docbk :call s:Init()
+autocmd FileType docbk,asciidoc :call s:Init()
 
 " - - - - - - - - - - - - -  c o m m a n d   d e f i n i t i o n s   - - - - - - - - - - - - "
 " dummy command and function for testing purposes
